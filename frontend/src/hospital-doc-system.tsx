@@ -6,7 +6,7 @@ import 'jspdf-autotable';
 
 // ⚠️ IP Address ของเครื่อง Host (Server)
 const API_IP = '192.168.203.16'; 
-const API = `http://${API_IP}:5000`;
+const API = 'https://hospital-doc-system.onrender.com';
 
 // ==================== Interfaces ====================
 interface DocumentBase { id: number; filePath?: string; createdAt?: string; [key: string]: any; }
@@ -863,4 +863,5 @@ export default function HospitalDocSystem() {
         )}
     </div>
   );
+
 }
