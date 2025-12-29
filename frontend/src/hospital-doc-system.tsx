@@ -1,25 +1,16 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
-import * as XLSX from 'xlsx';
-import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
-// 🔗 แก้ลิงก์ Server ให้ถูกต้อง (ลิงก์ Backend ของคุณ)
+// 🔗 ลิงก์ Server (Backend) บน Render
 const API = 'https://hospital-doc-system.onrender.com';
 
-// ==================== Interfaces ====================
-// (คงเดิมไว้)
-interface DocumentBase { id: number; filePath?: string; createdAt?: string; [key: string]: any; }
-// ... (Interfaces อื่นๆ เหมือนเดิม ไม่ต้องแก้) ...
-
-// ==================== Constants ====================
-// (สีและเมนู เหมือนเดิม)
+// ==================== Interfaces & Constants ====================
 const colors = {
   primary: '#0e7490', secondary: '#3b82f6', success: '#16a34a',
   danger: '#dc2626', bg: '#f8fafc', card: '#ffffff', text: '#334155',
   border: '#94a3b8', header: '#cbd5e1'
 };
-// ... (MainMenu เหมือนเดิม) ...
 
 const formatDate = (d: string) => {
     if(!d) return '-';
@@ -30,8 +21,8 @@ const formatDate = (d: string) => {
 
 // ==================== Main Component ====================
 export default function HospitalDocSystem() {
-  // --- State หลัก ---
-  const [currentUser, setCurrentUser] = useState<any>(null); // 👤 เก็บข้อมูลคน Login
+  // --- State ---
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
 
@@ -44,20 +35,16 @@ export default function HospitalDocSystem() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string|null>(null);
 
-  // Search & Others
   const [activeSearchTerm, setActiveSearchTerm] = useState('');
   const [tempSearchTerm, setTempSearchTerm] = useState('');
-  const [searchField, setSearchField] = useState('subject'); 
-  const [stampBalance, setStampBalance] = useState(0);
 
   // --- Init ---
-  // เช็คว่าเคย Login ค้างไว้ไหม
   useEffect(() => {
       const savedUser = localStorage.getItem('hospital_user');
       if (savedUser) setCurrentUser(JSON.parse(savedUser));
   }, []);
 
-  // --- Auto Refresh Data (Real-time) ---
+  // --- Load Data (Real-time) ---
   const loadData = useCallback(async () => {
     if(!tab) return;
     try {
@@ -68,21 +55,19 @@ export default function HospitalDocSystem() {
 
   useEffect(() => {
       loadData();
-      // รีเฟรชข้อมูลทุก 3 วินาที (เพื่อให้เครื่องอื่นเห็นข้อมูลใหม่)
       const interval = setInterval(() => {
           if (!showForm) loadData(); 
-      }, 3000);
+      }, 3000); // Auto refresh ทุก 3 วิ
       return () => clearInterval(interval);
   }, [loadData, showForm]);
 
-  // --- Login / Logout Logic ---
+  // --- Actions ---
   const handleLogin = async () => {
       try {
-          // ยิงไปเช็คที่ Server
           const res = await axios.post(`${API}/login`, loginForm);
           const user = res.data;
           setCurrentUser(user);
-          localStorage.setItem('hospital_user', JSON.stringify(user)); // จำการเข้าระบบไว้
+          localStorage.setItem('hospital_user', JSON.stringify(user));
           setIsLoginModalOpen(false);
           alert(`ยินดีต้อนรับ: ${user.fullname}`);
       } catch (e) {
@@ -96,7 +81,8 @@ export default function HospitalDocSystem() {
       setMenuId(null);
   };
 
-  // --- Save Logic (แก้ Bug บันทึกไม่ได้) ---
+  const handleInput = (k: string, v: any) => setForm((p:any) => ({...p, [k]: v}));
+
   const save = async () => {
       try {
           const fd = new FormData();
@@ -106,7 +92,6 @@ export default function HospitalDocSystem() {
           let url = `${API}/docs/${tab}`;
           if(editingId) url += `/${editingId}`;
 
-          // ตรวจสอบ method: ถ้ามี editingId ให้ใช้ PUT (แก้ไข), ถ้าไม่มีใช้ POST (เพิ่ม)
           if (editingId) await axios.put(url, fd);
           else await axios.post(url, fd);
 
@@ -127,30 +112,22 @@ export default function HospitalDocSystem() {
       } catch(e) { alert('ลบไม่สำเร็จ!'); }
   };
 
-  // --- Render Helper ---
-  const handleInput = (k: string, v: any) => setForm((p:any) => ({...p, [k]: v}));
-
-  // ==================== UI Rendering ====================
-
-  // 1. ถ้ายังไม่เลือกเมนู (หน้าแรก)
+  // ==================== Render ====================
   if(!menuId) return (
       <div style={{padding: 40, background: colors.bg, minHeight:'100vh', display:'flex', flexDirection:'column', alignItems:'center'}}>
           <div style={{width:'100%', maxWidth:1000, display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:40}}>
               <h1 style={{color: colors.primary, fontSize: 32, margin:0}}>🏥 Hospital E-Saraban</h1>
-              
-              {/* ปุ่ม Login / Logout */}
               {currentUser ? (
                   <div style={{display:'flex', alignItems:'center', gap:10}}>
                       <span style={{fontWeight:'bold', color:colors.primary}}>👤 {currentUser.fullname}</span>
                       <button onClick={handleLogout} style={{background:colors.danger, color:'white', padding:'8px 15px', border:'none', borderRadius:5, cursor:'pointer'}}>ออกจากระบบ</button>
                   </div>
               ) : (
-                  <button onClick={()=>setIsLoginModalOpen(true)} style={{background:colors.success, color:'white', padding:'8px 20px', border:'none', borderRadius:5, cursor:'pointer', fontWeight:'bold'}}>🔒 เข้าสู่ระบบ (สำหรับเจ้าหน้าที่)</button>
+                  <button onClick={()=>setIsLoginModalOpen(true)} style={{background:colors.success, color:'white', padding:'8px 20px', border:'none', borderRadius:5, cursor:'pointer', fontWeight:'bold'}}>🔒 เข้าสู่ระบบ (จนท.)</button>
               )}
           </div>
 
           <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(300px, 1fr))', gap:20, width:'100%', maxWidth:1000}}>
-              {/* เมนูหลัก */}
               {[{ id: 1, title: 'ทะเบียนจดหมายรับเข้า', icon: '📥', sub: [{ id: 'incoming-director', label: 'รับเข้า (ผอ.)' }, { id: 'incoming-general', label: 'รับเข้า (ทั่วไป)' }] },
                 { id: 2, title: 'ทะเบียนส่งออก', icon: '📮', sub: [{ id: 'outgoing-mail', label: 'ไปรษณีย์ส่งออก' }] },
                 { id: 3, title: 'หนังสือภายนอก', icon: '📤', sub: [{ id: 'ext-wrpk', label: 'หนังสือ รพ.' }] },
@@ -165,13 +142,12 @@ export default function HospitalDocSystem() {
               ))}
           </div>
 
-          {/* Login Modal */}
           {isLoginModalOpen && (
               <div style={{position:'fixed', top:0, left:0, right:0, bottom:0, background:'rgba(0,0,0,0.5)', display:'flex', justifyContent:'center', alignItems:'center', zIndex:1000}}>
                   <div style={{background:'white', padding:30, borderRadius:10, width:350}}>
                       <h3 style={{textAlign:'center', marginTop:0}}>🔐 เข้าสู่ระบบ</h3>
-                      <input placeholder="Username" value={loginForm.username} onChange={e=>setLoginForm({...loginForm, username:e.target.value})} style={{width:'100%', padding:10, marginBottom:10, boxSizing:'border-box'}} />
-                      <input type="password" placeholder="Password" value={loginForm.password} onChange={e=>setLoginForm({...loginForm, password:e.target.value})} style={{width:'100%', padding:10, marginBottom:20, boxSizing:'border-box'}} />
+                      <input placeholder="Username" value={loginForm.username} onChange={e=>setLoginForm({...loginForm, username:e.target.value})} style={{width:'100%', padding:10, marginBottom:10}} />
+                      <input type="password" placeholder="Password" value={loginForm.password} onChange={e=>setLoginForm({...loginForm, password:e.target.value})} style={{width:'100%', padding:10, marginBottom:20}} />
                       <button onClick={handleLogin} style={{width:'100%', padding:10, background:colors.primary, color:'white', border:'none', borderRadius:5, cursor:'pointer'}}>Login</button>
                       <button onClick={()=>setIsLoginModalOpen(false)} style={{width:'100%', padding:10, background:'transparent', color:'#666', border:'none', marginTop:10, cursor:'pointer'}}>ยกเลิก</button>
                   </div>
@@ -180,21 +156,17 @@ export default function HospitalDocSystem() {
       </div>
   );
 
-  // 2. หน้าตารางข้อมูล
   return (
     <div style={{padding: 20, background: colors.card, minHeight:'100vh'}}>
         <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', borderBottom:`2px solid ${colors.primary}`, paddingBottom:15, marginBottom:20}}>
             <div style={{display:'flex', alignItems:'center'}}>
                 <button onClick={()=>setMenuId(null)} style={{background:'transparent', border:`1px solid ${colors.border}`, padding:'5px 10px', marginRight:15, borderRadius:5, cursor:'pointer'}}>⬅ หน้าหลัก</button>
-                <h2 style={{margin:0, color: colors.primary}}>ระบบงานสารบรรณ</h2>
+                <h2 style={{margin:0, color: colors.primary, marginLeft:10}}>ระบบงานสารบรรณ</h2>
             </div>
-            {/* แสดงชื่อคน Login มุมขวาบน */}
-            {currentUser ? <span style={{fontWeight:'bold', color:'green'}}>✅ จนท.: {currentUser.fullname}</span> : <span style={{color:'gray'}}>👁️ มุมมองบุคคลทั่วไป (View Only)</span>}
+            {currentUser ? <span style={{fontWeight:'bold', color:'green'}}>✅ จนท.: {currentUser.fullname}</span> : <span style={{color:'gray'}}>👁️ มุมมองบุคคลทั่วไป</span>}
         </div>
 
-        {/* Action Bar */}
         <div style={{display:'flex', justifyContent:'space-between', marginBottom:20}}>
-            {/* 🔒 ปุ่มเพิ่มรายการจะโชว์เฉพาะคน Login แล้วเท่านั้น */}
             {currentUser && (
                 <button onClick={()=>{setShowForm(true); setEditingId(null); setForm({});}} style={{background: colors.secondary, color:'white', padding:'8px 15px', border:'none', borderRadius:5, cursor:'pointer'}}>+ เพิ่มรายการใหม่</button>
             )}
@@ -204,14 +176,12 @@ export default function HospitalDocSystem() {
             </div>
         </div>
 
-        {/* Table - แสดงข้อมูล (คนทั่วไปเห็นได้) */}
         <table style={{width:'100%', borderCollapse:'collapse', border: `1px solid ${colors.border}`}}>
              <thead>
                  <tr style={{background: colors.header}}>
                      <th style={{padding:10, border: `1px solid ${colors.border}`}}>วันที่</th>
-                     <th style={{padding:10, border: `1px solid ${colors.border}`}}>รายละเอียด / เรื่อง</th>
+                     <th style={{padding:10, border: `1px solid ${colors.border}`}}>รายละเอียด</th>
                      <th style={{padding:10, border: `1px solid ${colors.border}`}}>ไฟล์แนบ</th>
-                     {/* 🔒 คอลัมน์จัดการ โชว์เฉพาะคน Login */}
                      {currentUser && <th style={{padding:10, border: `1px solid ${colors.border}`}}>จัดการ</th>}
                  </tr>
              </thead>
@@ -226,7 +196,6 @@ export default function HospitalDocSystem() {
                          <td style={{padding:10, border: `1px solid ${colors.border}`, textAlign:'center'}}>
                              {d.filePath && <button onClick={()=>setPreviewUrl(`${API}${d.filePath}`)} style={{cursor:'pointer'}}>📎 ดูไฟล์</button>}
                          </td>
-                         {/* 🔒 ปุ่มแก้ไข/ลบ โชว์เฉพาะคน Login */}
                          {currentUser && (
                              <td style={{padding:10, border: `1px solid ${colors.border}`, textAlign:'center'}}>
                                  <button onClick={()=>{setForm(d); setEditingId(d.id); setShowForm(true);}} style={{marginRight:5}}>✎</button>
@@ -238,17 +207,28 @@ export default function HospitalDocSystem() {
              </tbody>
         </table>
 
-        {/* Modal ฟอร์มกรอกข้อมูล (เหมือนเดิม) */}
         {showForm && (
             <div style={{position:'fixed', top:0, left:0, right:0, bottom:0, background:'rgba(0,0,0,0.5)', display:'flex', justifyContent:'center', alignItems:'center'}}>
                 <div style={{background:'white', padding:20, borderRadius:8, width:500, maxHeight:'90vh', overflowY:'auto'}}>
                     <h3>{editingId ? 'แก้ไข' : 'เพิ่ม'} ข้อมูล</h3>
-                    {/* (ตัวอย่างฟอร์มย่อ - ของจริงใช้ชุดเดิมได้เลย) */}
-                    <div style={{marginBottom:10}}><label>วันที่</label><input type="date" value={form.date || form.receiveDate || ''} onChange={e=>handleInput(tab.includes('incoming')?'receiveDate':'date', e.target.value)} style={{width:'100%'}}/></div>
-                    <div style={{marginBottom:10}}><label>เรื่อง/ชื่อ</label><input value={form.subject || form.childName || ''} onChange={e=>handleInput(tab.includes('reg')?'childName':'subject', e.target.value)} style={{width:'100%'}}/></div>
-                    {/* ... ใส่ input fields อื่นๆ ตามต้องการ ... */}
                     
-                    <div style={{marginBottom:10}}><label>แนบไฟล์</label><input type="file" onChange={e=>handleInput('file', e.target.files[0])}/></div>
+                    <div style={{marginBottom:10}}><label>วันที่</label><input type="date" value={form.date || form.receiveDate || ''} onChange={e=>handleInput(tab.includes('incoming')?'receiveDate':'date', e.target.value)} style={{width:'100%', padding:5}}/></div>
+                    <div style={{marginBottom:10}}><label>เลขที่/ลำดับ</label><input value={form.docNumber || form.receiptNumber || ''} onChange={e=>handleInput(tab==='outgoing-mail'?'receiptNumber':'docNumber', e.target.value)} style={{width:'100%', padding:5}}/></div>
+                    <div style={{marginBottom:10}}><label>เรื่อง/ชื่อ/วัตถุประสงค์</label><input value={form.subject || form.childName || form.purpose || ''} onChange={e=>handleInput(tab.includes('reg')?'childName': tab==='meeting'?'purpose':'subject', e.target.value)} style={{width:'100%', padding:5}}/></div>
+                    
+                    {/* 👇 จุดที่แก้ไข Error TypeScript แล้วครับ */}
+                    <div style={{marginBottom:10}}>
+                        <label>แนบไฟล์ (ถ้ามี)</label>
+                        <input 
+                            type="file" 
+                            onChange={e => {
+                                if (e.target.files && e.target.files.length > 0) {
+                                    handleInput('file', e.target.files[0]);
+                                }
+                            }}
+                            style={{marginTop:5}}
+                        />
+                    </div>
                     
                     <div style={{display:'flex', gap:10, marginTop:20}}>
                         <button onClick={save} style={{flex:1, background:colors.primary, color:'white', padding:10, border:'none', borderRadius:5, cursor:'pointer'}}>บันทึก</button>
@@ -258,11 +238,10 @@ export default function HospitalDocSystem() {
             </div>
         )}
 
-        {/* File Preview Modal */}
         {previewUrl && (
             <div style={{position:'fixed', top:0, left:0, width:'100%', height:'100%', background:'rgba(0,0,0,0.9)', zIndex: 200, display:'flex', justifyContent:'center', alignItems:'center'}}>
                 <div style={{width:'80%', height:'80%', background:'white', position:'relative'}}>
-                     <button onClick={()=>setPreviewUrl(null)} style={{position:'absolute', right:-10, top:-10, background:'red', color:'white', borderRadius:'50%', width:30, height:30, cursor:'pointer'}}>X</button>
+                     <button onClick={()=>setPreviewUrl(null)} style={{position:'absolute', right:-10, top:-10, background:'red', color:'white', borderRadius:'50%', width:30, height:30, cursor:'pointer', border:'none'}}>X</button>
                      <iframe src={previewUrl} width="100%" height="100%" />
                 </div>
             </div>
