@@ -7,13 +7,15 @@ import 'jspdf-autotable';
 // 🔗 ลิงก์ Server
 const API = 'https://hospital-doc-system.onrender.com';
 
-// ==================== UI Constants ====================
+// ==================== Constants ====================
 const colors = {
   primary: '#1e3a8a', secondary: '#2563eb', success: '#16a34a',
   danger: '#dc2626', bg: '#f1f5f9', card: '#ffffff', text: '#334155', border: '#cbd5e1',
-  roomRuby: '#fee2e2', roomRubyText: '#991b1b', // สีห้องทับทิม
-  room8: '#dbeafe', room8Text: '#1e40af'        // สีห้องชั้น 8
+  roomRuby: '#fee2e2', roomRubyText: '#991b1b',
+  room8: '#dbeafe', room8Text: '#1e40af'
 };
+
+const months = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
 
 const formatDate = (d: string) => {
     if(!d) return '-';
@@ -21,8 +23,6 @@ const formatDate = (d: string) => {
     if(isNaN(date.getTime())) return '-';
     return `${date.getDate()}/${date.getMonth()+1}/${date.getFullYear()+543}`;
 };
-
-const months = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
 
 const mainMenu = [
     { id: 1, title: 'ทะเบียนรับเข้า', icon: '📥', sub: [{ id: 'incoming-director', label: 'รับเข้า (ผอ./กก.บห.)' }, { id: 'incoming-general', label: 'รับเข้า (ทั่วไป)' }] },
@@ -35,13 +35,11 @@ const mainMenu = [
 ];
 
 export default function HospitalDocSystem() {
-  // --- User State ---
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   const [loginLoading, setLoginLoading] = useState(false);
 
-  // --- App State ---
   const [menuId, setMenuId] = useState<number | null>(null);
   const [tab, setTab] = useState<string>('');
   const [data, setData] = useState<any[]>([]);
@@ -50,15 +48,13 @@ export default function HospitalDocSystem() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string|null>(null);
 
-  // --- View State (Calendar/List) & Search ---
   const [meetingView, setMeetingView] = useState<'calendar' | 'list'>('calendar');
   const [calDate, setCalDate] = useState(new Date());
-  const [expandedReceipts, setExpandedReceipts] = useState<string[]>([]); // สำหรับไปรษณีย์
+  const [expandedReceipts, setExpandedReceipts] = useState<string[]>([]);
   const [activeSearchTerm, setActiveSearchTerm] = useState('');
   const [tempSearchTerm, setTempSearchTerm] = useState('');
   const [stampBalance, setStampBalance] = useState(0);
 
-  // --- Init ---
   useEffect(() => {
       const savedUser = localStorage.getItem('hospital_user');
       if (savedUser) setCurrentUser(JSON.parse(savedUser));
@@ -70,8 +66,6 @@ export default function HospitalDocSystem() {
         const res = await axios.get(`${API}/docs/${tab}`);
         const rawData = res.data || [];
         setData(rawData);
-
-        // คำนวณยอดอากรคงเหลือ (ถ้าเป็นหมวดอากร)
         if(tab === 'stamp') {
             let bal = 0;
             rawData.forEach((d:any) => {
@@ -89,9 +83,8 @@ export default function HospitalDocSystem() {
       return () => clearInterval(interval);
   }, [loadData, showForm]);
 
-  // --- Login Logic ---
-  const handleLogin = async (e?: React.FormEvent) => {
-      if(e) e.preventDefault();
+  const handleLogin = async () => {
+      if(!loginForm.username || !loginForm.password) return alert("กรุณากรอกข้อมูลให้ครบ");
       setLoginLoading(true);
       try {
           const res = await axios.post(`${API}/login`, loginForm);
@@ -109,13 +102,12 @@ export default function HospitalDocSystem() {
       if(confirm('ยืนยันออกจากระบบ?')) { setCurrentUser(null); localStorage.removeItem('hospital_user'); }
   };
 
-  // --- Action Logic ---
   const handleInput = (k: string, v: any) => setForm((p:any) => ({...p, [k]: v}));
 
   const save = async () => {
       try {
           const fd = new FormData();
-          // Auto-fill logic
+          // Logic: ถ้าเป็น stamp แล้วไม่มี type ให้ถือว่าเป็น USE (เบิกจ่าย)
           if(tab === 'stamp' && !form.transactionType) form.transactionType = 'USE';
           
           fd.append('data', JSON.stringify(form));
@@ -138,42 +130,6 @@ export default function HospitalDocSystem() {
       try { await axios.delete(`${API}/docs/${tab}/${id}`); loadData(); } catch(e) { alert('ลบไม่สำเร็จ!'); }
   };
 
-  // --- Export Logic ---
-  const handleExport = (type: 'excel' | 'pdf') => {
-      if(data.length === 0) return alert('ไม่พบข้อมูล');
-      let headers: string[] = [];
-      let body: any[] = [];
-
-      // กำหนดหัวตารางตามหมวดงาน
-      if(tab.includes('incoming')) {
-          headers = ['วันที่รับ', 'เลขที่หนังสือ', 'จาก', 'ถึง', 'เรื่อง'];
-          body = data.map(d => [formatDate(d.receiveDate), d.docNumber, d.source, d.recipientName, d.subject]);
-      } else if (tab === 'outgoing-mail') {
-          headers = ['วันที่ส่ง', 'เลขที่ใบเสร็จ', 'เรื่อง', 'ผู้รับปลายทาง', 'ค่าส่ง (บาท)'];
-          body = data.map(d => [formatDate(d.sendDate), d.receiptNumber, d.subject, d.recipientName, d.amount]);
-      } else if (tab === 'meeting') {
-          headers = ['วันที่จอง', 'เวลา', 'ห้อง', 'แผนก', 'วัตถุประสงค์'];
-          body = data.map(d => [formatDate(d.bookingDate), `${d.startTime}-${d.endTime}`, d.room, d.department, d.purpose]);
-      } else {
-          headers = ['วันที่', 'รายละเอียด', 'หมายเหตุ'];
-          body = data.map(d => [formatDate(d.date||d.createdAt), d.subject||d.docNumber, d.remark||'-']);
-      }
-
-      if (type === 'excel') {
-          const ws = XLSX.utils.aoa_to_sheet([headers, ...body]);
-          const wb = XLSX.utils.book_new();
-          XLSX.utils.book_append_sheet(wb, ws, "Report");
-          XLSX.writeFile(wb, `Report_${tab}.xlsx`);
-      } else {
-          const doc = new jsPDF() as any;
-          doc.addFont('Sarabun-Regular.ttf', 'Sarabun', 'normal'); // Note: ต้องมี Font ในโปรเจกต์ถึงจะแสดงไทยได้ (ในโค้ดนี้อาจจะไม่แสดงไทยถ้าไม่มีไฟล์ฟอนต์)
-          doc.text(`Report: ${tab}`, 10, 10);
-          doc.autoTable({ head: [headers], body: body, startY: 20 });
-          doc.save(`Report_${tab}.pdf`);
-      }
-  };
-
-  // --- Helper: Grouping Data for Outgoing Mail ---
   const groupedReceipts = useMemo(() => {
       if(tab !== 'outgoing-mail') return {};
       return data.reduce((acc:any, item:any) => {
@@ -186,36 +142,106 @@ export default function HospitalDocSystem() {
       }, {});
   }, [data, tab]);
 
-  // ==================== Render Functions ====================
+  const handleExport = (type: 'excel' | 'pdf') => {
+      if(data.length === 0) return alert('ไม่พบข้อมูล');
+      let headers: string[] = [];
+      let body: any[] = [];
+      
+      if(tab.includes('incoming')) {
+          headers = ['วันที่รับ', 'เลขที่หนังสือ', 'จาก', 'ถึง', 'เรื่อง', 'Tracking'];
+          body = data.map(d => [formatDate(d.receiveDate), d.docNumber, d.source, d.recipientName, d.subject, d.trackingNo]);
+      } else if (tab === 'outgoing-mail') {
+          headers = ['วันที่ส่ง', 'เลขที่ใบเสร็จ', 'เรื่อง', 'ผู้รับ', 'ค่าส่ง'];
+          body = data.map(d => [formatDate(d.sendDate), d.receiptNumber, d.subject, d.recipientName, d.amount]);
+      } else if (tab === 'meeting') {
+          headers = ['วันที่จอง', 'เวลา', 'ห้อง', 'แผนก', 'เรื่อง'];
+          body = data.map(d => [formatDate(d.bookingDate), `${d.startTime}-${d.endTime}`, d.room, d.department, d.purpose]);
+      } else if (tab.includes('ext')) {
+          headers = ['วันที่ออก', 'เลขที่หนังสือ', 'เรื่อง', 'เรียน'];
+          body = data.map(d => [formatDate(d.date), d.docNumber, d.subject, d.recipientName]);
+      } else if (tab === 'stamp') {
+          headers = ['วันที่', 'รายการ', 'รับ', 'จ่าย', 'ผู้เบิก'];
+          body = data.map(d => [formatDate(d.date), d.reason, d.transactionType==='ADD'?d.amount:'-', d.transactionType==='USE'?d.amount:'-', d.requester]);
+      } else {
+          headers = ['วันที่', 'รายละเอียด'];
+          body = data.map(d => [formatDate(d.date||d.createdAt), d.subject]);
+      }
 
-  // 1. Render Table Content (Logic แยกตามหมวดงาน)
+      if (type === 'excel') {
+          const ws = XLSX.utils.aoa_to_sheet([headers, ...body]);
+          const wb = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(wb, ws, "Report");
+          XLSX.writeFile(wb, `Report_${tab}.xlsx`);
+      } else {
+          const doc = new jsPDF() as any;
+          doc.addFont('Sarabun-Regular.ttf', 'Sarabun', 'normal');
+          doc.text(`Report: ${tab}`, 10, 10);
+          doc.autoTable({ head: [headers], body: body, startY: 20 });
+          doc.save(`Report_${tab}.pdf`);
+      }
+  };
+
+  // --- Render Sections ---
+
+  const renderCalendar = () => {
+      const year = calDate.getFullYear();
+      const month = calDate.getMonth();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      const firstDay = new Date(year, month, 1).getDay();
+
+      return (
+          <div style={{background:'white', padding:10, borderRadius:8, border:'1px solid #ccc'}}>
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10}}>
+                  <button onClick={()=>setCalDate(new Date(year, month-1, 1))}>◀ เดือนก่อน</button>
+                  <h3 style={{margin:0}}>{months[month]} {year+543}</h3>
+                  <button onClick={()=>setCalDate(new Date(year, month+1, 1))}>เดือนหน้า ▶</button>
+              </div>
+              <div style={{display:'grid', gridTemplateColumns:'repeat(7, 1fr)', gap:1, background:'#ddd', border:'1px solid #ddd'}}>
+                  {['อา','จ','อ','พ','พฤ','ศ','ส'].map(d=><div key={d} style={{background:colors.primary, color:'white', textAlign:'center', padding:5}}>{d}</div>)}
+                  {[...Array(firstDay)].map((_,i)=><div key={`empty-${i}`} style={{background:'white', minHeight:100}}></div>)}
+                  {[...Array(daysInMonth)].map((_,i) => {
+                      const day = i+1;
+                      const bookings = data.filter((b:any) => {
+                          const d = new Date(b.bookingDate);
+                          return d.getDate() === day && d.getMonth() === month && d.getFullYear() === year;
+                      });
+                      return (
+                          <div key={day} style={{background:'white', minHeight:100, padding:5}}>
+                              <div style={{textAlign:'right', fontWeight:'bold', fontSize:12, marginBottom:5}}>{day}</div>
+                              {bookings.map((b:any) => (
+                                  <div key={b.id} onClick={()=>{if(currentUser){setForm(b); setEditingId(b.id); setShowForm(true);}}}
+                                       style={{fontSize:10, padding:'2px 4px', marginBottom:2, borderRadius:3, cursor: currentUser?'pointer':'default',
+                                               background: b.room?.includes('ทับทิม') ? colors.roomRuby : colors.room8,
+                                               color: b.room?.includes('ทับทิม') ? colors.roomRubyText : colors.room8Text,
+                                               borderLeft: `3px solid ${b.room?.includes('ทับทิม') ? 'red' : 'blue'}`}}>
+                                      {b.startTime} {b.department}
+                                  </div>
+                              ))}
+                          </div>
+                      );
+                  })}
+              </div>
+          </div>
+      );
+  };
+
   const renderContent = () => {
-      // 📮 หมวดไปรษณีย์ (จัดกลุ่มตามใบเสร็จ)
       if (tab === 'outgoing-mail') {
           return (
               <div>
-                   {Object.entries(groupedReceipts).map(([rNum, group]: any) => (
-                       <div key={rNum} style={{marginBottom: 15, border: `1px solid ${colors.secondary}`, borderRadius: 8, overflow:'hidden'}}>
+                  {Object.entries(groupedReceipts).map(([rNum, group]: any) => (
+                       <div key={rNum} style={{marginBottom: 15, border: `1px solid ${colors.secondary}`, borderRadius: 8, overflow:'hidden', background:'white'}}>
                            <div style={{padding: 10, background: '#eff6ff', display:'flex', justifyContent:'space-between', alignItems:'center', cursor:'pointer'}}
                                 onClick={() => setExpandedReceipts(prev => prev.includes(rNum) ? prev.filter(x=>x!==rNum) : [...prev, rNum])}>
-                                <div>
-                                    <span style={{fontWeight:'bold', color: colors.primary}}>🧾 ใบเสร็จ: {rNum}</span>
-                                    <span style={{marginLeft: 15, color: '#64748b'}}>วันที่: {formatDate(group.date)}</span>
-                                    <span style={{marginLeft: 15, background: 'white', padding:'2px 8px', borderRadius:10, fontSize:12, border:'1px solid #ccc'}}>✉️ {group.count} ฉบับ</span>
-                                </div>
+                                <div><span style={{fontWeight:'bold', color: colors.primary}}>🧾 ใบเสร็จ: {rNum}</span><span style={{marginLeft: 15, color: '#64748b'}}>วันที่: {formatDate(group.date)}</span><span style={{marginLeft: 15, background: 'white', padding:'2px 8px', borderRadius:10, fontSize:12, border:'1px solid #ccc'}}>✉️ {group.count} ฉบับ</span></div>
                                 <div style={{fontWeight:'bold', color: colors.success}}>รวม: {group.totalCost.toLocaleString()} บาท {expandedReceipts.includes(rNum) ? '▲' : '▼'}</div>
                            </div>
                            {expandedReceipts.includes(rNum) && (
                                <table style={{width:'100%', borderCollapse:'collapse'}}>
-                                   <thead style={{background:'#f8fafc'}}><tr><th style={{padding:8, textAlign:'left'}}>เรื่อง</th><th style={{padding:8, textAlign:'left'}}>ผู้รับ</th><th style={{padding:8}}>ค่าส่ง</th><th style={{padding:8}}>จัดการ</th></tr></thead>
+                                   <thead style={{background:'#f8fafc'}}><tr><th style={{padding:8, textAlign:'left'}}>เรื่อง</th><th style={{padding:8, textAlign:'left'}}>ผู้รับ</th><th style={{padding:8}}>ค่าส่ง</th>{currentUser&&<th style={{padding:8}}>จัดการ</th>}</tr></thead>
                                    <tbody>
                                        {group.items.map((item:any) => (
-                                           <tr key={item.id} style={{borderTop:'1px solid #eee'}}>
-                                               <td style={{padding:8}}>{item.subject}</td>
-                                               <td style={{padding:8}}>{item.recipientName}</td>
-                                               <td style={{padding:8, textAlign:'center'}}>{item.amount}</td>
-                                               {currentUser && <td style={{padding:8, textAlign:'center'}}><button onClick={()=>del(item.id)} style={{color:'red', border:'none', background:'none', cursor:'pointer'}}>ลบ</button></td>}
-                                           </tr>
+                                           <tr key={item.id} style={{borderTop:'1px solid #eee'}}><td style={{padding:8}}>{item.subject}</td><td style={{padding:8}}>{item.recipientName}</td><td style={{padding:8}}>{item.amount}</td>{currentUser && <td style={{padding:8}}><button onClick={()=>del(item.id)} style={{color:'red', border:'none', background:'none', cursor:'pointer'}}>x</button></td>}</tr>
                                        ))}
                                    </tbody>
                                </table>
@@ -225,136 +251,103 @@ export default function HospitalDocSystem() {
               </div>
           );
       }
-
-      // 📅 หมวดห้องประชุม (Calendar / List View)
       if (tab === 'meeting') {
-          const renderCalendar = () => {
-              const year = calDate.getFullYear();
-              const month = calDate.getMonth();
-              const daysInMonth = new Date(year, month + 1, 0).getDate();
-              const firstDay = new Date(year, month, 1).getDay();
-
-              return (
-                  <div>
-                      <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10}}>
-                          <button onClick={()=>setCalDate(new Date(year, month-1, 1))}>◀ เดือนก่อน</button>
-                          <h3 style={{margin:0}}>{months[month]} {year+543}</h3>
-                          <button onClick={()=>setCalDate(new Date(year, month+1, 1))}>เดือนหน้า ▶</button>
-                      </div>
-                      <div style={{display:'grid', gridTemplateColumns:'repeat(7, 1fr)', gap:1, background:'#ccc', border:'1px solid #ccc'}}>
-                          {['อา','จ','อ','พ','พฤ','ศ','ส'].map(d=><div key={d} style={{background:colors.primary, color:'white', textAlign:'center', padding:5}}>{d}</div>)}
-                          {[...Array(firstDay)].map((_,i)=><div key={`empty-${i}`} style={{background:'white', height:100}}></div>)}
-                          {[...Array(daysInMonth)].map((_,i) => {
-                              const day = i+1;
-                              const bookings = data.filter((b:any) => {
-                                  const d = new Date(b.bookingDate);
-                                  return d.getDate() === day && d.getMonth() === month && d.getFullYear() === year;
-                              });
-                              return (
-                                  <div key={day} style={{background:'white', height:100, padding:5, overflowY:'auto'}}>
-                                      <div style={{fontWeight:'bold', textAlign:'right', fontSize:12, marginBottom:2}}>{day}</div>
-                                      {bookings.map((b:any) => (
-                                          <div key={b.id} style={{fontSize:10, padding:2, marginBottom:2, borderRadius:3, 
-                                               background: b.room?.includes('ทับทิม') ? colors.roomRuby : colors.room8,
-                                               color: b.room?.includes('ทับทิม') ? colors.roomRubyText : colors.room8Text,
-                                               cursor:'pointer'}}
-                                               onClick={()=>{if(currentUser){setForm(b); setEditingId(b.id); setShowForm(true);}}}>
-                                              {b.startTime} {b.department}
-                                          </div>
-                                      ))}
-                                  </div>
-                              );
-                          })}
-                      </div>
-                  </div>
-              );
-          };
-
           return (
               <div>
                   <div style={{marginBottom:15}}>
-                      <button onClick={()=>setMeetingView('calendar')} style={{padding:'5px 15px', marginRight:5, background: meetingView==='calendar'?colors.primary:'white', color: meetingView==='calendar'?'white':'black', border:'1px solid #ccc'}}>ปฏิทิน</button>
-                      <button onClick={()=>setMeetingView('list')} style={{padding:'5px 15px', background: meetingView==='list'?colors.primary:'white', color: meetingView==='list'?'white':'black', border:'1px solid #ccc'}}>รายการ</button>
+                      <button onClick={()=>setMeetingView('calendar')} style={{padding:'5px 15px', marginRight:5, background: meetingView==='calendar'?colors.primary:'white', color: meetingView==='calendar'?'white':'black', border:'1px solid #ccc', cursor:'pointer'}}>ปฏิทิน</button>
+                      <button onClick={()=>setMeetingView('list')} style={{padding:'5px 15px', background: meetingView==='list'?colors.primary:'white', color: meetingView==='list'?'white':'black', border:'1px solid #ccc', cursor:'pointer'}}>รายการ</button>
                   </div>
-                  {meetingView === 'calendar' ? renderCalendar() : renderStandardTable(['วันที่', 'เวลา', 'ห้อง', 'แผนก', 'เรื่อง', 'ไฟล์'], ['bookingDate', 'timeRange', 'room', 'department', 'purpose', 'filePath'])}
+                  {meetingView === 'calendar' ? renderCalendar() : renderStandardTable(['วันที่', 'เวลา', 'ห้อง', 'แผนก', 'เรื่อง'], ['bookingDate', 'timeRange', 'room', 'department', 'purpose'])}
               </div>
           );
       }
-
-      // 🎫 หมวดอากรแสตมป์
       if (tab === 'stamp') {
           return (
               <div>
                   <div style={{background:'#fff7ed', border:'1px solid #fdba74', padding:20, borderRadius:10, marginBottom:20, display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-                      <div>
-                          <div style={{color:'#9a3412', fontSize:14}}>ยอดเงินคงเหลือ</div>
-                          <div style={{fontSize:36, fontWeight:'bold', color: stampBalance < 100 ? 'red' : '#ea580c'}}>{stampBalance.toLocaleString()} บาท</div>
-                      </div>
+                      <div><div style={{color:'#9a3412', fontSize:14}}>ยอดเงินคงเหลือ</div><div style={{fontSize:36, fontWeight:'bold', color: stampBalance < 100 ? 'red' : '#ea580c'}}>{stampBalance.toLocaleString()} บาท</div></div>
                       {currentUser && <button onClick={()=>{setForm({transactionType:'ADD', date: new Date().toISOString().split('T')[0]}); setShowForm(true);}} style={{background:colors.success, color:'white', padding:'10px 20px', border:'none', borderRadius:5, cursor:'pointer'}}>+ ซื้อเพิ่ม</button>}
                   </div>
                   {renderStandardTable(['วันที่', 'รายการ', 'รับ', 'จ่าย', 'ผู้เบิก'], ['date', 'reason', 'income', 'expense', 'requester'])}
               </div>
           );
       }
-
-      // 📄 หมวดทั่วไป (รับเข้า / ราษฎร์ / ภายนอก) - ใช้ตารางมาตรฐาน
+      
       let headers = ['วันที่', 'เรื่อง/รายละเอียด', 'ไฟล์'];
       let keys = ['date', 'subject', 'filePath'];
-
       if(tab.includes('incoming')) { headers = ['วันที่รับ', 'เลขที่หนังสือ', 'จาก', 'ถึง', 'เรื่อง', 'Tracking', 'ไฟล์']; keys = ['receiveDate', 'docNumber', 'source', 'recipientName', 'subject', 'trackingNo', 'filePath']; }
-      if(tab.includes('reg-birth')) { headers = ['เกิดวันที่', 'เวลา', 'ชื่อเด็ก', 'ชื่อบิดา-มารดา', 'ไฟล์']; keys = ['date', 'time', 'childName', 'parents', 'filePath']; }
-      if(tab.includes('reg-death')) { headers = ['เสียชีวิตวันที่', 'เวลา', 'ชื่อผู้เสียชีวิต', 'สาเหตุ', 'จัดการศพ']; keys = ['date', 'time', 'deceasedName', 'cause', 'funeral']; }
+      else if(tab.includes('ext')) { headers = ['วันที่ออก', 'เลขที่หนังสือ', 'เรื่อง', 'เรียน', 'ไฟล์']; keys = ['date', 'docNumber', 'subject', 'recipientName', 'filePath']; }
+      else if(tab.includes('reg-birth')) { headers = ['เกิดวันที่', 'เวลา', 'ชื่อเด็ก', 'ชื่อบิดา-มารดา', 'ไฟล์']; keys = ['date', 'time', 'childName', 'parents', 'filePath']; }
+      else if(tab.includes('reg-death')) { headers = ['เสียชีวิตวันที่', 'เวลา', 'ชื่อผู้เสียชีวิต', 'สาเหตุ', 'จัดการศพ']; keys = ['date', 'time', 'deceasedName', 'cause', 'funeral']; }
+      else if(tab.includes('orders')) { headers = ['วันที่บังคับใช้', 'เลขที่คำสั่ง', 'เรื่อง', 'ไฟล์']; keys = ['effectiveDate', 'docNumber', 'subject', 'filePath']; }
 
       return renderStandardTable(headers, keys);
   };
 
-  // Helper: Standard Table Renderer
   const renderStandardTable = (headers: string[], keys: string[]) => (
-      <div style={{overflowX:'auto'}}>
-      <table style={{width:'100%', borderCollapse:'collapse', background:'white'}}>
-          <thead style={{background:'#e2e8f0'}}><tr>{headers.map(h=><th key={h} style={{padding:10, textAlign:'left', color:colors.primary}}>{h}</th>)}{currentUser && <th style={{width:80}}>จัดการ</th>}</tr></thead>
+      <div style={{background:'white', borderRadius:8, overflow:'hidden', boxShadow:'0 2px 4px rgba(0,0,0,0.05)', overflowX:'auto'}}>
+      <table style={{width:'100%', borderCollapse:'collapse'}}>
+          <thead style={{background:'#e2e8f0'}}><tr>{headers.map(h=><th key={h} style={{padding:12, textAlign:'left', color:colors.primary}}>{h}</th>)}{currentUser && <th style={{width:80}}>จัดการ</th>}</tr></thead>
           <tbody>
               {data.filter(d => JSON.stringify(d).toLowerCase().includes(activeSearchTerm.toLowerCase())).map((d, i) => (
                   <tr key={d.id} style={{borderBottom:'1px solid #eee', background: i%2===0?'white':'#f8fafc'}}>
                       {keys.map((k, idx) => {
                           let val = d[k];
-                          if(k === 'date' || k === 'receiveDate' || k === 'bookingDate') val = formatDate(val);
+                          if(k.includes('date') || k.includes('Date')) val = formatDate(val);
                           if(k === 'timeRange') val = `${d.startTime} - ${d.endTime}`;
                           if(k === 'income') val = d.transactionType==='ADD' ? d.amount : '-';
                           if(k === 'expense') val = d.transactionType==='USE' ? d.amount : '-';
                           if(k === 'parents') val = `บ:${d.fatherName} ม:${d.motherName}`;
-                          if(k === 'filePath') return <td key={k}>{val && <button onClick={()=>setPreviewUrl(`${API}${val}`)}>📎</button>}</td>;
-                          return <td key={k} style={{padding:10}}>{val}</td>;
+                          if(k === 'filePath') return <td key={k} style={{padding:12}}>{val && <button onClick={()=>setPreviewUrl(`${API}${val}`)} style={{background:'none', border:'none', cursor:'pointer', fontSize:16}}>📎</button>}</td>;
+                          return <td key={k} style={{padding:12}}>{val}</td>;
                       })}
                       {currentUser && (
                           <td style={{textAlign:'center'}}>
-                              <button onClick={()=>{setForm(d); setEditingId(d.id); setShowForm(true);}} style={{marginRight:5, cursor:'pointer'}}>✏️</button>
-                              <button onClick={()=>del(d.id)} style={{color:'red', cursor:'pointer'}}>✖</button>
+                              <button onClick={()=>{setForm(d); setEditingId(d.id); setShowForm(true);}} style={{marginRight:5, cursor:'pointer', background:'none', border:'none'}}>✏️</button>
+                              <button onClick={()=>del(d.id)} style={{color:'red', cursor:'pointer', background:'none', border:'none'}}>✖</button>
                           </td>
                       )}
                   </tr>
               ))}
+              {data.length === 0 && <tr><td colSpan={headers.length+1} style={{padding:20, textAlign:'center', color:'#aaa'}}>ไม่มีข้อมูล</td></tr>}
           </tbody>
       </table>
       </div>
   );
 
-  // 4. Modal Form (Dynamic Inputs)
   const renderFormModal = () => (
       <div style={{position:'fixed', top:0, left:0, right:0, bottom:0, background:'rgba(0,0,0,0.5)', display:'flex', justifyContent:'center', alignItems:'center', zIndex:1000}}>
           <div style={{background:'white', padding:20, borderRadius:10, width:500, maxHeight:'90vh', overflowY:'auto'}}>
               <h3>{editingId ? 'แก้ไข' : 'เพิ่ม'} ข้อมูล</h3>
               
-              {/* Common Fields */}
-              <div style={{marginBottom:10}}><label>วันที่</label><input type="date" value={form.date || form.receiveDate || form.bookingDate || form.sendDate || ''} onChange={e=>handleInput(tab.includes('incoming')?'receiveDate':tab==='meeting'?'bookingDate':tab==='outgoing-mail'?'sendDate':'date', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>
-              
-              {/* Conditional Fields */}
+              {/* Common Date */}
+              <div style={{marginBottom:10}}><label>วันที่</label><input type="date" value={form.date || form.receiveDate || form.bookingDate || form.sendDate || form.effectiveDate || ''} onChange={e=>handleInput(tab.includes('incoming')?'receiveDate':tab==='meeting'?'bookingDate':tab==='outgoing-mail'?'sendDate':tab==='orders'?'effectiveDate':'date', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>
+
+              {/* SPECIFIC FIELDS */}
+              {/* 1. Outgoing Mail */}
               {tab === 'outgoing-mail' && <>
                   <div style={{marginBottom:10}}><label>เลขที่ใบเสร็จ</label><input value={form.receiptNumber||''} onChange={e=>handleInput('receiptNumber', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>
                   <div style={{marginBottom:10}}><label>ค่าส่ง (บาท)</label><input type="number" value={form.amount||''} onChange={e=>handleInput('amount', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>
                   <div style={{marginBottom:10}}><label>ผู้รับปลายทาง</label><input value={form.recipientName||''} onChange={e=>handleInput('recipientName', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>
+                  <div style={{marginBottom:10}}><label>เรื่อง</label><input value={form.subject||''} onChange={e=>handleInput('subject', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>
               </>}
 
+              {/* 2. External Books (หนังสือภายนอก) */}
+              {tab.includes('ext') && <>
+                   <div style={{marginBottom:10}}><label>เลขที่หนังสือ</label><input value={form.docNumber||''} onChange={e=>handleInput('docNumber', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>
+                   <div style={{marginBottom:10}}><label>เรื่อง</label><input value={form.subject||''} onChange={e=>handleInput('subject', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>
+                   <div style={{marginBottom:10}}><label>เรียน (ผู้รับ)</label><input value={form.recipientName||''} onChange={e=>handleInput('recipientName', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>
+              </>}
+
+              {/* 3. Stamp Duty (อากรแสตมป์) */}
+              {tab === 'stamp' && <>
+                   <div style={{marginBottom:10}}><label>รายการ (เหตุผล)</label><input value={form.reason||''} onChange={e=>handleInput('reason', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>
+                   <div style={{marginBottom:10}}><label>จำนวนเงิน (บาท)</label><input type="number" value={form.amount||''} onChange={e=>handleInput('amount', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>
+                   {form.transactionType === 'USE' && <div style={{marginBottom:10}}><label>ผู้เบิก</label><input value={form.requester||''} onChange={e=>handleInput('requester', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>}
+              </>}
+
+              {/* 4. Meeting */}
               {tab === 'meeting' && <>
                   <div style={{display:'flex', gap:10}}>
                        <div style={{flex:1}}><label>เริ่ม</label><input type="time" value={form.startTime||''} onChange={e=>handleInput('startTime', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>
@@ -365,11 +358,15 @@ export default function HospitalDocSystem() {
                   <div style={{marginBottom:10}}><label>วัตถุประสงค์</label><input value={form.purpose||''} onChange={e=>handleInput('purpose', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>
               </>}
 
-              {/* Generic Inputs for Others */}
-              {!['meeting', 'outgoing-mail'].includes(tab) && <>
-                  <div style={{marginBottom:10}}><label>เรื่อง / ชื่อ / รายละเอียด</label><input value={form.subject || form.childName || form.deceasedName || form.reason || ''} onChange={e=>handleInput(tab.includes('reg-birth')?'childName':tab.includes('reg-death')?'deceasedName':tab==='stamp'?'reason':'subject', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>
-                  {(tab.includes('incoming') || tab.includes('ext')) && <div style={{marginBottom:10}}><label>เลขที่หนังสือ</label><input value={form.docNumber||''} onChange={e=>handleInput('docNumber', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>}
-                  {tab.includes('incoming') && <div style={{marginBottom:10}}><label>จากหน่วยงาน</label><input value={form.source||''} onChange={e=>handleInput('source', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>}
+              {/* 5. Incoming / Orders / Reg (Others) */}
+              {(!['meeting', 'outgoing-mail', 'stamp'].includes(tab) && !tab.includes('ext')) && <>
+                  <div style={{marginBottom:10}}><label>เรื่อง / ชื่อ</label><input value={form.subject || form.childName || form.deceasedName || ''} onChange={e=>handleInput(tab.includes('reg-birth')?'childName':tab.includes('reg-death')?'deceasedName':'subject', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>
+                  {(tab.includes('incoming') || tab==='orders') && <div style={{marginBottom:10}}><label>เลขที่หนังสือ/คำสั่ง</label><input value={form.docNumber||''} onChange={e=>handleInput('docNumber', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>}
+                  {tab.includes('incoming') && <>
+                      <div style={{marginBottom:10}}><label>จากหน่วยงาน</label><input value={form.source||''} onChange={e=>handleInput('source', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>
+                      <div style={{marginBottom:10}}><label>ถึง</label><input value={form.recipientName||''} onChange={e=>handleInput('recipientName', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>
+                      <div style={{marginBottom:10}}><label>Tracking (ถ้ามี)</label><input value={form.trackingNo||''} onChange={e=>handleInput('trackingNo', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>
+                  </>}
               </>}
 
               <div style={{marginBottom:10}}>
@@ -385,21 +382,18 @@ export default function HospitalDocSystem() {
       </div>
   );
 
-  // ==================== Main Render ====================
-  // Login Modal
   if(isLoginModalOpen) return (
       <div style={{position:'fixed', top:0, left:0, right:0, bottom:0, background:'rgba(0,0,0,0.5)', display:'flex', justifyContent:'center', alignItems:'center', zIndex:2000}}>
-          <form onSubmit={handleLogin} style={{background:'white', padding:30, borderRadius:10, width:350}}>
+          <div style={{background:'white', padding:30, borderRadius:10, width:350}}>
               <h3 style={{textAlign:'center'}}>🔐 เข้าสู่ระบบ</h3>
               <input autoFocus placeholder="Username" value={loginForm.username} onChange={e=>setLoginForm({...loginForm, username:e.target.value})} style={{width:'100%', padding:10, marginBottom:10}} />
               <input type="password" placeholder="Password" value={loginForm.password} onChange={e=>setLoginForm({...loginForm, password:e.target.value})} style={{width:'100%', padding:10, marginBottom:20}} />
-              <button type="submit" style={{width:'100%', padding:10, background:colors.primary, color:'white', border:'none', cursor:'pointer'}}>{loginLoading?'...':'Login'}</button>
-              <button type="button" onClick={()=>setIsLoginModalOpen(false)} style={{width:'100%', marginTop:10, background:'none', border:'none', cursor:'pointer'}}>Cancel</button>
-          </form>
+              <button onClick={handleLogin} style={{width:'100%', padding:10, background:colors.primary, color:'white', border:'none', cursor:'pointer'}}>{loginLoading?'...':'Login'}</button>
+              <button onClick={()=>setIsLoginModalOpen(false)} style={{width:'100%', marginTop:10, background:'none', border:'none', cursor:'pointer'}}>Cancel</button>
+          </div>
       </div>
   );
 
-  // Home Menu Grid
   if(!menuId) return (
       <div style={{padding: 20, background: colors.bg, minHeight:'100vh', fontFamily:'Sarabun, sans-serif'}}>
           <div style={{display:'flex', justifyContent:'center', alignItems:'center', marginBottom:30, position:'relative'}}>
@@ -424,7 +418,6 @@ export default function HospitalDocSystem() {
       </div>
   );
 
-  // Content Page
   const currentMenu = mainMenu.find(m => m.id === menuId);
   return (
     <div style={{padding: 20, background: colors.bg, minHeight:'100vh', fontFamily:'Sarabun, sans-serif'}}>
@@ -444,7 +437,7 @@ export default function HospitalDocSystem() {
             ))}
         </div>
 
-        <div style={{background:'white', padding:15, borderRadius:10, marginBottom:20, display:'flex', gap:10}}>
+        <div style={{background:'white', padding:15, borderRadius:10, marginBottom:20, display:'flex', gap:10, flexWrap:'wrap'}}>
             {currentUser && <button onClick={()=>{setShowForm(true); setEditingId(null); setForm({});}} style={{background: colors.secondary, color:'white', padding:'8px 15px', border:'none', borderRadius:5, cursor:'pointer'}}>+ เพิ่มรายการ</button>}
             <div style={{flexGrow:1}} />
             <input placeholder="ค้นหา..." value={tempSearchTerm} onChange={e=>setTempSearchTerm(e.target.value)} style={{padding:8, border:'1px solid #ccc'}} />
