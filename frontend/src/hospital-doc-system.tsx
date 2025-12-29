@@ -2,15 +2,19 @@ import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 import 'jspdf-autotable';
 
-// 🔗 ลิงก์ Server (Backend) บน Render
-// ตรวจสอบให้แน่ใจว่า Server บน Render ทำงานอยู่ (สถานะเป็นสีเขียว)
+// 🔗 ลิงก์ Server
 const API = 'https://hospital-doc-system.onrender.com';
 
-// ==================== Constants & Formatters ====================
+// ==================== UI Constants ====================
 const colors = {
-  primary: '#0e7490', secondary: '#3b82f6', success: '#16a34a',
-  danger: '#dc2626', bg: '#f8fafc', card: '#ffffff', text: '#334155',
-  border: '#94a3b8', header: '#cbd5e1'
+  primary: '#1e3a8a',    // น้ำเงินเข้ม (ตามรูป Header)
+  secondary: '#2563eb',  // น้ำเงินสด (ปุ่มเพิ่ม)
+  success: '#16a34a',    // เขียว (Excel)
+  danger: '#dc2626',     // แดง (PDF/Delete)
+  bg: '#f1f5f9',         // พื้นหลังเทาอ่อน
+  card: '#ffffff',
+  text: '#334155',
+  border: '#cbd5e1'
 };
 
 const formatDate = (d: string) => {
@@ -20,26 +24,26 @@ const formatDate = (d: string) => {
     return `${date.getDate()}/${date.getMonth()+1}/${date.getFullYear()+543}`;
 };
 
-// เมนูหลัก (แสดงให้ทุกคนเห็น)
+// เมนูตามรูปภาพของคุณ
 const mainMenu = [
-    { id: 1, title: 'ทะเบียนจดหมายรับเข้า', icon: '📥', sub: [{ id: 'incoming-director', label: 'รับเข้า (ผอ.)' }, { id: 'incoming-general', label: 'รับเข้า (ทั่วไป)' }] },
-    { id: 2, title: 'ทะเบียนส่งออก', icon: '📮', sub: [{ id: 'outgoing-mail', label: 'ไปรษณีย์ส่งออก' }] },
-    { id: 3, title: 'หนังสือภายนอก', icon: '📤', sub: [{ id: 'ext-wrpk', label: 'หนังสือ รพ.' }] },
-    { id: 4, title: 'คำสั่ง/ประกาศ', icon: '📜', sub: [{ id: 'orders', label: 'คำสั่งภายใน' }] },
+    { id: 1, title: 'ทะเบียนรับเข้า', icon: '📥', sub: [{ id: 'incoming-director', label: 'รับเข้า (ผอ./กก.บห.)' }, { id: 'incoming-general', label: 'รับเข้า (ทั่วไป)' }] },
+    { id: 2, title: 'ทะเบียนส่งออก (ปณ.)', icon: '📮', sub: [{ id: 'outgoing-mail', label: 'ทะเบียนส่งออก' }] },
+    { id: 3, title: 'หนังสือภายนอก', icon: '📤', sub: [{ id: 'ext-wrpk', label: 'หนังสือ รพ.วรปก.' }, { id: 'ext-wrpk-sp', label: 'หนังสือ รพ.วรปก.สป' }] },
+    { id: 4, title: 'คำสั่ง/แต่งตั้ง', icon: '📜', sub: [{ id: 'orders', label: 'คำสั่ง/แต่งตั้ง' }] },
     { id: 5, title: 'ทะเบียนราษฎร์', icon: '👶', sub: [{ id: 'reg-birth', label: 'แจ้งเกิด' }, { id: 'reg-death', label: 'แจ้งตาย' }] },
-    { id: 7, title: 'จองห้องประชุม', icon: '📅', sub: [{ id: 'meeting', label: 'ตารางห้องประชุม' }] }
+    { id: 6, title: 'คุมอากรแสตมป์', icon: '🎫', sub: [{ id: 'stamp', label: 'การ์ดคุมอากร' }] },
+    { id: 7, title: 'จองห้องประชุม', icon: '📅', sub: [{ id: 'meeting', label: 'ตารางการใช้ห้อง' }] }
 ];
 
-// ==================== Main Component ====================
 export default function HospitalDocSystem() {
   // --- User State ---
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
-  const [loginError, setLoginError] = useState('');
+  const [loginLoading, setLoginLoading] = useState(false);
 
   // --- App State ---
-  const [menuId, setMenuId] = useState<number | null>(null);
+  const [menuId, setMenuId] = useState<number | null>(null); // null = หน้า Home Grid
   const [tab, setTab] = useState<string>('');
   
   const [data, setData] = useState<any[]>([]);
@@ -53,74 +57,57 @@ export default function HospitalDocSystem() {
 
   // --- Init ---
   useEffect(() => {
-      // โหลดข้อมูล User เก่าที่เคย Login ไว้
       const savedUser = localStorage.getItem('hospital_user');
-      if (savedUser) {
-          try {
-             setCurrentUser(JSON.parse(savedUser));
-          } catch(e) { localStorage.removeItem('hospital_user'); }
-      }
+      if (savedUser) setCurrentUser(JSON.parse(savedUser));
   }, []);
 
-  // --- Load Data (Real-time) ---
+  // --- Load Data ---
   const loadData = useCallback(async () => {
     if(!tab) return;
     try {
         const res = await axios.get(`${API}/docs/${tab}`);
         setData(res.data || []);
-    } catch(e) { console.error("Load Error (อาจเป็นเพราะ Server ยังไม่ตื่น):", e); }
+    } catch(e) { console.error("Load Error:", e); }
   }, [tab]);
 
   useEffect(() => {
       loadData();
-      const interval = setInterval(() => {
-          if (!showForm) loadData(); 
-      }, 3000); // Auto refresh ทุก 3 วิ
+      const interval = setInterval(() => { if (!showForm) loadData(); }, 3000);
       return () => clearInterval(interval);
   }, [loadData, showForm]);
 
-  // --- Login Logic (แก้ไขให้ Debug ง่ายขึ้น) ---
-  const handleLogin = async () => {
-      setLoginError('');
+  // --- Login Logic (แก้ Bug กดแล้วนิ่ง) ---
+  const handleLogin = async (e?: React.FormEvent) => {
+      if(e) e.preventDefault(); // 🟢 ป้องกันรีเฟรชหน้า
+      setLoginLoading(true);
       try {
-          console.log("กำลังส่งข้อมูล Login...", loginForm);
+          // alert("กำลังเชื่อมต่อ Server..."); // เอาออกได้ถ้าไม่อยากให้เด้ง
           const res = await axios.post(`${API}/login`, loginForm);
-          
-          if (res.data) {
-              const user = res.data;
-              setCurrentUser(user);
-              localStorage.setItem('hospital_user', JSON.stringify(user));
-              setIsLoginModalOpen(false);
-              setLoginForm({ username: '', password: '' }); // Clear form
-              alert(`ยินดีต้อนรับ: ${user.fullname}`);
-          }
-      } catch (e: any) {
-          console.error("Login Failed:", e);
-          if (e.response) {
-              // Server ตอบกลับมาว่า Error
-              setLoginError(`เข้าสู่ระบบไม่สำเร็จ: ${e.response.data.error || 'ชื่อ/รหัสผิด'}`);
-          } else if (e.request) {
-              // Server ไม่ตอบ (Render อาจจะหลับอยู่ หรือเน็ตหลุด)
-              setLoginError('เชื่อมต่อ Server ไม่ได้ (รอสักครู่แล้วลองใหม่)');
-          } else {
-              setLoginError('เกิดข้อผิดพลาดในระบบ');
-          }
+          const user = res.data;
+          setCurrentUser(user);
+          localStorage.setItem('hospital_user', JSON.stringify(user));
+          setIsLoginModalOpen(false);
+          setLoginForm({ username: '', password: '' });
+          alert(`ยินดีต้อนรับ: ${user.fullname} ✅`);
+      } catch (err: any) {
+          console.error(err);
+          alert(`เข้าสู่ระบบไม่สำเร็จ: ${err.response?.data?.error || 'เชื่อมต่อ Server ไม่ได้'}`);
+      } finally {
+          setLoginLoading(false);
       }
   };
 
   const handleLogout = () => {
-      if(confirm('ต้องการออกจากระบบ?')) {
+      if(confirm('ยืนยันออกจากระบบ?')) {
           setCurrentUser(null);
           localStorage.removeItem('hospital_user');
-          // ไม่ต้อง setMenuId(null) เพื่อให้ดูข้อมูลต่อได้ในฐานะคนทั่วไป
       }
   };
 
   const handleInput = (k: string, v: any) => setForm((p:any) => ({...p, [k]: v}));
 
-  // --- CRUD Actions ---
+  // --- Save / Delete ---
   const save = async () => {
-      if(!currentUser) return alert("กรุณา Login ก่อนทำรายการ");
       try {
           const fd = new FormData();
           fd.append('data', JSON.stringify(form));
@@ -135,13 +122,10 @@ export default function HospitalDocSystem() {
           setShowForm(false); setForm({}); setEditingId(null);
           loadData(); 
           alert('บันทึกข้อมูลสำเร็จ ✅');
-      } catch(e: any) { 
-          alert(`บันทึกไม่สำเร็จ: ${e.message}`); 
-      }
+      } catch(e: any) { alert(`บันทึกไม่สำเร็จ: ${e.message}`); }
   };
 
   const del = async (id: number) => {
-      if(!currentUser) return;
       if(!confirm('ยืนยันลบรายการนี้?')) return;
       try {
           await axios.delete(`${API}/docs/${tab}/${id}`);
@@ -149,243 +133,190 @@ export default function HospitalDocSystem() {
       } catch(e) { alert('ลบไม่สำเร็จ!'); }
   };
 
-  // ==================== Render UI ====================
-  
-  // ส่วน Header (แสดงตลอดเวลา)
-  const renderHeader = () => (
-      <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:30, borderBottom:`1px solid ${colors.border}`, paddingBottom:15}}>
-          <div>
-              <h1 style={{color: colors.primary, fontSize: 24, margin:0}}>🏥 ระบบงานสารบรรณ (Hospital E-Saraban)</h1>
-              <span style={{fontSize:14, color:'#666'}}>ระบบสืบค้นและจัดเก็บเอกสารออนไลน์</span>
-          </div>
-          
-          <div>
-              {currentUser ? (
-                  <div style={{display:'flex', alignItems:'center', gap:10}}>
-                      <div style={{textAlign:'right'}}>
-                          <div style={{fontWeight:'bold', color:colors.success}}>👤 {currentUser.fullname}</div>
-                          <div style={{fontSize:12, color:'#666'}}>สถานะ: เจ้าหน้าที่ (แก้ไขได้)</div>
-                      </div>
-                      <button onClick={handleLogout} style={{background:colors.danger, color:'white', padding:'8px 15px', border:'none', borderRadius:5, cursor:'pointer'}}>Logout</button>
-                  </div>
-              ) : (
-                  <div style={{display:'flex', alignItems:'center', gap:10}}>
-                      <div style={{fontSize:12, color:'#666', textAlign:'right'}}>สถานะ: บุคคลทั่วไป<br/>(ดูได้อย่างเดียว)</div>
-                      <button onClick={()=>setIsLoginModalOpen(true)} style={{background:colors.primary, color:'white', padding:'8px 20px', border:'none', borderRadius:5, cursor:'pointer', fontWeight:'bold'}}>🔒 Login เจ้าหน้าที่</button>
-                  </div>
-              )}
-          </div>
+  // ==================== Render Views ====================
+
+  // 1. หน้า Login Modal (แสดงเมื่อกดปุ่ม Login หรือ isLoginModalOpen = true)
+  const renderLoginModal = () => (
+      <div style={{position:'fixed', top:0, left:0, right:0, bottom:0, background:'rgba(0,0,0,0.5)', display:'flex', justifyContent:'center', alignItems:'center', zIndex:2000}}>
+          <form onSubmit={handleLogin} style={{background:'white', padding:30, borderRadius:10, width:350, boxShadow:'0 4px 20px rgba(0,0,0,0.2)'}}>
+              <h3 style={{textAlign:'center', color: colors.primary, marginTop:0}}>🔐 เข้าสู่ระบบ (เจ้าหน้าที่)</h3>
+              <div style={{marginBottom:15}}>
+                  <label>Username</label>
+                  <input autoFocus value={loginForm.username} onChange={e=>setLoginForm({...loginForm, username:e.target.value})} style={{width:'100%', padding:10, marginTop:5, border:'1px solid #ccc', borderRadius:5}} />
+              </div>
+              <div style={{marginBottom:20}}>
+                  <label>Password</label>
+                  <input type="password" value={loginForm.password} onChange={e=>setLoginForm({...loginForm, password:e.target.value})} style={{width:'100%', padding:10, marginTop:5, border:'1px solid #ccc', borderRadius:5}} />
+              </div>
+              <button type="submit" disabled={loginLoading} style={{width:'100%', padding:12, background: loginLoading ? '#ccc' : colors.primary, color:'white', border:'none', borderRadius:5, cursor:'pointer', fontSize:16}}>
+                  {loginLoading ? 'กำลังตรวจสอบ...' : 'เข้าสู่ระบบ'}
+              </button>
+              <button type="button" onClick={()=>setIsLoginModalOpen(false)} style={{width:'100%', padding:10, background:'transparent', color:'#666', border:'none', marginTop:10, cursor:'pointer'}}>ยกเลิก</button>
+          </form>
       </div>
   );
 
-  // 1. หน้า Dashboard เมนูหลัก (ถ้ายังไม่ได้เลือกเมนู)
+  // 2. หน้า Home (Grid Menu) - ตามรูป 1000077782.jpg
   if(!menuId) return (
-      <div style={{padding: 30, background: colors.bg, minHeight:'100vh', fontFamily:'sans-serif'}}>
-          {renderHeader()}
+      <div style={{padding: 20, background: colors.bg, minHeight:'100vh', fontFamily:'Sarabun, sans-serif'}}>
+          {isLoginModalOpen && renderLoginModal()}
           
-          <div style={{textAlign:'center', marginBottom:20, color:'#64748b'}}>เลือกรายการที่ต้องการดูข้อมูล</div>
-          
-          <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(280px, 1fr))', gap:20}}>
+          <div style={{display:'flex', justifyContent:'center', alignItems:'center', marginBottom:30, position:'relative'}}>
+               <h1 style={{color: '#1e293b', fontSize: 28, margin:0}}>🏥 Hospital E-Saraban System</h1>
+               <div style={{position:'absolute', right:0}}>
+                   {currentUser ? (
+                       <div style={{textAlign:'right'}}>
+                           <span style={{color:'green', fontWeight:'bold', marginRight:10}}>👤 {currentUser.fullname}</span>
+                           <button onClick={handleLogout} style={{background: colors.danger, color:'white', border:'none', padding:'5px 10px', borderRadius:5, cursor:'pointer'}}>Logout</button>
+                       </div>
+                   ) : (
+                       <button onClick={()=>setIsLoginModalOpen(true)} style={{background:'white', border:'1px solid #ccc', padding:'5px 10px', borderRadius:5, cursor:'pointer'}}>🔐 Login</button>
+                   )}
+               </div>
+          </div>
+
+          <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(280px, 1fr))', gap:25, maxWidth:1200, margin:'0 auto'}}>
               {mainMenu.map(m => (
                   <div key={m.id} onClick={()=>{ setMenuId(m.id); if(m.sub.length) setTab(m.sub[0].id); }} 
-                       style={{background: colors.card, padding: 30, borderRadius: 15, cursor:'pointer', border:`1px solid #cbd5e1`, textAlign:'center', boxShadow:'0 4px 6px -1px rgba(0,0,0,0.1)', transition:'transform 0.2s'}}>
-                      <div style={{fontSize: 40, marginBottom: 10}}>{m.icon}</div>
-                      <div style={{fontSize: 18, fontWeight:'bold', color: colors.text}}>{m.title}</div>
-                      <div style={{fontSize: 14, color: '#94a3b8', marginTop:5}}>คลิกเพื่อดูข้อมูล</div>
+                       style={{background: 'white', padding: 40, borderRadius: 15, cursor:'pointer', border:'1px solid #e2e8f0', textAlign:'center', boxShadow:'0 2px 5px rgba(0,0,0,0.05)', transition:'transform 0.2s', height:180, display:'flex', flexDirection:'column', justifyContent:'center', alignItems:'center'}}>
+                      <div style={{fontSize: 50, marginBottom: 15}}>{m.icon}</div>
+                      <div style={{fontSize: 20, fontWeight:'bold', color: '#334155'}}>{m.title}</div>
                   </div>
               ))}
           </div>
-
-          {/* Modal Login */}
-          {isLoginModalOpen && (
-              <div style={{position:'fixed', top:0, left:0, right:0, bottom:0, background:'rgba(0,0,0,0.5)', display:'flex', justifyContent:'center', alignItems:'center', zIndex:1000}}>
-                  <div style={{background:'white', padding:30, borderRadius:10, width:350, boxShadow:'0 10px 25px rgba(0,0,0,0.2)'}}>
-                      <h3 style={{textAlign:'center', marginTop:0, color:colors.primary}}>🔐 เข้าสู่ระบบเจ้าหน้าที่</h3>
-                      
-                      {loginError && <div style={{background:'#fee2e2', color:'#b91c1c', padding:10, borderRadius:5, marginBottom:10, fontSize:14}}>{loginError}</div>}
-                      
-                      <div style={{marginBottom:10}}>
-                          <label style={{fontSize:14, fontWeight:'bold'}}>Username</label>
-                          <input value={loginForm.username} onChange={e=>setLoginForm({...loginForm, username:e.target.value})} style={{width:'100%', padding:10, marginTop:5, border:'1px solid #ccc', borderRadius:5, boxSizing:'border-box'}} />
-                      </div>
-                      <div style={{marginBottom:20}}>
-                          <label style={{fontSize:14, fontWeight:'bold'}}>Password</label>
-                          <input type="password" value={loginForm.password} onChange={e=>setLoginForm({...loginForm, password:e.target.value})} style={{width:'100%', padding:10, marginTop:5, border:'1px solid #ccc', borderRadius:5, boxSizing:'border-box'}} />
-                      </div>
-                      
-                      <button onClick={handleLogin} style={{width:'100%', padding:12, background:colors.primary, color:'white', border:'none', borderRadius:5, cursor:'pointer', fontWeight:'bold', fontSize:16}}>เข้าสู่ระบบ</button>
-                      <button onClick={()=>setIsLoginModalOpen(false)} style={{width:'100%', padding:10, background:'transparent', color:'#666', border:'none', marginTop:10, cursor:'pointer'}}>ยกเลิก</button>
-                  </div>
-              </div>
-          )}
       </div>
   );
 
-  // 2. หน้าตารางข้อมูล (เมื่อเลือกเมนูแล้ว)
+  // 3. หน้า Table Data (เมื่อกดเลือกเมนูแล้ว) - ตามรูป 1000077783.jpg
   const currentMenu = mainMenu.find(m => m.id === menuId);
 
   return (
-    <div style={{padding: 20, background: colors.card, minHeight:'100vh', fontFamily:'sans-serif'}}>
-        {/* Header ย่อ */}
-        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', borderBottom:`2px solid ${colors.primary}`, paddingBottom:15, marginBottom:20}}>
+    <div style={{padding: 20, background: colors.bg, minHeight:'100vh', fontFamily:'Sarabun, sans-serif'}}>
+        {isLoginModalOpen && renderLoginModal()}
+
+        {/* Header Bar */}
+        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20}}>
             <div style={{display:'flex', alignItems:'center'}}>
-                <button onClick={()=>setMenuId(null)} style={{background:'#f1f5f9', border:`1px solid ${colors.border}`, padding:'8px 15px', marginRight:15, borderRadius:5, cursor:'pointer', fontWeight:'bold'}}>⬅ กลับเมนูหลัก</button>
-                <h2 style={{margin:0, color: colors.primary}}>{currentMenu?.icon} {currentMenu?.title}</h2>
+                <button onClick={()=>setMenuId(null)} style={{background:'white', border:`1px solid ${colors.border}`, padding:'8px 15px', marginRight:15, borderRadius:5, cursor:'pointer', fontWeight:'bold'}}>⬅ กลับหน้าหลัก</button>
+                <h2 style={{margin:0, color: '#1e293b'}}>{currentMenu?.title}</h2>
             </div>
-            {currentUser ? (
-                 <div style={{textAlign:'right'}}>
-                     <span style={{fontWeight:'bold', color:colors.success}}>👤 {currentUser.fullname}</span>
-                     <button onClick={handleLogout} style={{marginLeft:10, fontSize:12, color:'red', background:'none', border:'none', cursor:'pointer', textDecoration:'underline'}}>Logout</button>
-                 </div>
-            ) : (
-                 <button onClick={()=>setIsLoginModalOpen(true)} style={{background:colors.primary, color:'white', padding:'5px 15px', border:'none', borderRadius:5, cursor:'pointer', fontSize:14}}>🔐 Login</button>
+            {currentUser && (
+                <div>
+                     <span style={{color:'green', fontWeight:'bold', marginRight:10}}>👤 {currentUser.fullname}</span>
+                     <button onClick={handleLogout} style={{background: colors.danger, color:'white', border:'none', padding:'5px 10px', borderRadius:5, cursor:'pointer'}}>Logout</button>
+                </div>
             )}
         </div>
+        
+        <hr style={{borderColor:'#e2e8f0', opacity:0.5, marginBottom:20}}/>
 
-        {/* Sub Tabs */}
-        <div style={{marginBottom: 20, display:'flex', gap:10, overflowX:'auto'}}>
+        {/* Tabs */}
+        <div style={{marginBottom: 20}}>
             {currentMenu?.sub.map(s => (
                 <button key={s.id} onClick={()=>setTab(s.id)} 
-                        style={{padding:'8px 20px', border:'none', borderRadius:20, fontWeight:'bold', cursor:'pointer',
-                        background: tab===s.id ? colors.primary : '#e2e8f0', color: tab===s.id ? 'white' : colors.text}}>
+                        style={{padding:'10px 25px', border:'none', borderRadius:30, fontWeight:'bold', cursor:'pointer', marginRight:10,
+                        background: tab===s.id ? '#1e293b' : '#cbd5e1', color: tab===s.id ? 'white' : '#475569', boxShadow: tab===s.id ? '0 4px 6px -1px rgba(0,0,0,0.2)' : 'none'}}>
                     {s.label}
                 </button>
             ))}
         </div>
 
-        {/* Action Bar */}
-        <div style={{display:'flex', justifyContent:'space-between', marginBottom:20, flexWrap:'wrap', gap:10}}>
-            <div>
-                {/* 🔒 ปุ่มเพิ่มรายการ: แสดงเฉพาะตอน Login แล้วเท่านั้น */}
-                {currentUser ? (
-                    <button onClick={()=>{setShowForm(true); setEditingId(null); setForm({});}} style={{background: colors.secondary, color:'white', padding:'10px 20px', border:'none', borderRadius:5, cursor:'pointer', boxShadow:'0 2px 4px rgba(0,0,0,0.1)'}}>
-                        + เพิ่มรายการใหม่
-                    </button>
-                ) : (
-                    <span style={{color:'#64748b', fontStyle:'italic', padding:'5px 0'}}>เข้าสู่ระบบเพื่อ เพิ่ม/แก้ไข ข้อมูล</span>
-                )}
-            </div>
+        {/* Action Bar (Search & Add) */}
+        <div style={{background:'white', padding:15, borderRadius:10, marginBottom:20, border:'1px solid #e2e8f0', display:'flex', alignItems:'center', flexWrap:'wrap', gap:15}}>
+            {/* 🟢 ปุ่มเพิ่ม: แสดงเฉพาะเจ้าหน้าที่ */}
+            {currentUser ? (
+                <button onClick={()=>{setShowForm(true); setEditingId(null); setForm({});}} style={{background: colors.secondary, color:'white', padding:'10px 20px', border:'none', borderRadius:5, cursor:'pointer', fontWeight:'bold', display:'flex', alignItems:'center', gap:5}}>
+                    + เพิ่มรายการ
+                </button>
+            ) : (
+                <div style={{fontStyle:'italic', color:'#64748b', padding:'5px 10px', background:'#f1f5f9', borderRadius:5}}>🔒 เข้าสู่ระบบเพื่อจัดการข้อมูล</div>
+            )}
+
+            <div style={{flexGrow:1}}></div>
+
+            <span style={{fontWeight:'bold'}}>ค้นหาจาก:</span>
+            <select style={{padding:8, borderRadius:5, border:'1px solid #ccc'}}>
+                <option>เรื่อง/ชื่อ</option>
+                <option>เลขที่หนังสือ</option>
+            </select>
+            <input placeholder="ระบุคำค้นหา..." value={tempSearchTerm} onChange={e=>setTempSearchTerm(e.target.value)} style={{padding:8, width:250, borderRadius:5, border:'1px solid #ccc'}} />
+            <button onClick={()=>setActiveSearchTerm(tempSearchTerm)} style={{background:'#1e293b', color:'white', padding:'8px 15px', border:'none', borderRadius:5, cursor:'pointer'}}>🔍 ค้นหา</button>
             
-            <div style={{display:'flex', gap:5}}>
-                <input placeholder="ค้นหาข้อมูล..." value={tempSearchTerm} onChange={e=>setTempSearchTerm(e.target.value)} onKeyDown={e=>e.key==='Enter' && setActiveSearchTerm(tempSearchTerm)} style={{padding:8, borderRadius:4, border:'1px solid #ccc', width:200}} />
-                <button onClick={()=>setActiveSearchTerm(tempSearchTerm)} style={{cursor:'pointer', padding:'8px 15px', background:'#cbd5e1', border:'none', borderRadius:4}}>🔍</button>
+            <div style={{borderLeft:'2px solid #eee', paddingLeft:15, display:'flex', gap:5}}>
+                <button style={{background:colors.success, color:'white', padding:'8px 15px', border:'none', borderRadius:5}}>Excel</button>
+                <button style={{background:colors.danger, color:'white', padding:'8px 15px', border:'none', borderRadius:5}}>PDF</button>
             </div>
         </div>
 
-        {/* Table Content */}
-        <div style={{overflowX:'auto'}}>
-            <table style={{width:'100%', borderCollapse:'collapse', border: `1px solid ${colors.border}`, minWidth:600}}>
-                <thead>
-                    <tr style={{background: colors.header}}>
-                        <th style={{padding:12, border: `1px solid ${colors.border}`, textAlign:'left'}}>วันที่</th>
-                        <th style={{padding:12, border: `1px solid ${colors.border}`, textAlign:'left'}}>รายละเอียด</th>
-                        <th style={{padding:12, border: `1px solid ${colors.border}`, textAlign:'center', width:100}}>ไฟล์แนบ</th>
-                        {/* 🔒 คอลัมน์จัดการ: แสดงเฉพาะตอน Login */}
-                        {currentUser && <th style={{padding:12, border: `1px solid ${colors.border}`, textAlign:'center', width:100}}>จัดการ</th>}
+        {/* Table Data */}
+        <div style={{background:'white', borderRadius:10, overflow:'hidden', border:'1px solid #e2e8f0', boxShadow:'0 2px 5px rgba(0,0,0,0.05)'}}>
+            <table style={{width:'100%', borderCollapse:'collapse'}}>
+                <thead style={{background:'#e0e7ff'}}>
+                    <tr>
+                        <th style={{padding:12, borderBottom:'2px solid #cbd5e1', textAlign:'left', color:'#1e3a8a'}}>ลำดับ</th>
+                        <th style={{padding:12, borderBottom:'2px solid #cbd5e1', textAlign:'left', color:'#1e3a8a'}}>วันที่</th>
+                        <th style={{padding:12, borderBottom:'2px solid #cbd5e1', textAlign:'left', color:'#1e3a8a'}}>รายละเอียด / เรื่อง</th>
+                        <th style={{padding:12, borderBottom:'2px solid #cbd5e1', textAlign:'center', color:'#1e3a8a'}}>ไฟล์</th>
+                        {/* 🟢 คอลัมน์จัดการ: แสดงเฉพาะเจ้าหน้าที่ */}
+                        {currentUser && <th style={{padding:12, borderBottom:'2px solid #cbd5e1', textAlign:'center', color:'#1e3a8a'}}>จัดการ</th>}
                     </tr>
                 </thead>
                 <tbody>
-                    {data.length === 0 ? (
-                        <tr><td colSpan={4} style={{padding:20, textAlign:'center', color:'#999'}}>ไม่พบข้อมูล</td></tr>
-                    ) : (
-                        data.filter(d => JSON.stringify(d).toLowerCase().includes(activeSearchTerm.toLowerCase())).map((d, i) => (
-                            <tr key={d.id} style={{background: i%2===0?'white':'#f8fafc'}}>
-                                <td style={{padding:12, border: `1px solid ${colors.border}`, verticalAlign:'top'}}>
-                                    {formatDate(d.receiveDate || d.date || d.bookingDate || d.effectiveDate || d.createdAt)}
-                                    {d.time ? <div style={{fontSize:12, color:'#666'}}>{d.time} น.</div> : null}
+                    {data.filter(d => JSON.stringify(d).toLowerCase().includes(activeSearchTerm.toLowerCase())).map((d, i) => (
+                        <tr key={d.id} style={{background: i%2===0?'white':'#f8fafc', borderBottom:'1px solid #eee'}}>
+                            <td style={{padding:12}}>{i+1}</td>
+                            <td style={{padding:12}}>{formatDate(d.date || d.receiveDate || d.bookingDate || d.createdAt)}</td>
+                            <td style={{padding:12}}>
+                                <div style={{fontWeight:'bold'}}>{d.docNumber || d.receiptNumber}</div>
+                                <div>{d.subject || d.purpose || d.childName}</div>
+                                <div style={{fontSize:12, color:'#64748b'}}>{d.source ? `จาก: ${d.source}` : ''} {d.recipientName ? `ถึง: ${d.recipientName}` : ''}</div>
+                            </td>
+                            <td style={{padding:12, textAlign:'center'}}>
+                                {d.filePath && <button onClick={()=>setPreviewUrl(`${API}${d.filePath}`)} style={{background:'none', border:'none', cursor:'pointer', fontSize:18}}>📎</button>}
+                            </td>
+                            {currentUser && (
+                                <td style={{padding:12, textAlign:'center'}}>
+                                    <button onClick={()=>{setForm(d); setEditingId(d.id); setShowForm(true);}} style={{background:'none', border:'none', cursor:'pointer', marginRight:10}}>✏️</button>
+                                    <button onClick={()=>del(d.id)} style={{background:'none', border:'none', cursor:'pointer', color:'red'}}>❌</button>
                                 </td>
-                                <td style={{padding:12, border: `1px solid ${colors.border}`, verticalAlign:'top'}}>
-                                    <div style={{fontWeight:'bold', color:colors.primary}}>{d.docNumber || d.receiptNumber}</div>
-                                    <div>{d.subject || d.purpose || d.childName || d.deceasedName}</div>
-                                    <div style={{fontSize:13, color:'#64748b', marginTop:4}}>
-                                        {d.source && <span>จาก: {d.source} </span>}
-                                        {d.recipientName && <span>ถึง: {d.recipientName} </span>}
-                                        {d.room && <span style={{color:d.room.includes('ทับทิม')?'red':'blue'}}>({d.room})</span>}
-                                    </div>
-                                </td>
-                                <td style={{padding:12, border: `1px solid ${colors.border}`, textAlign:'center', verticalAlign:'top'}}>
-                                    {d.filePath ? (
-                                        <button onClick={()=>setPreviewUrl(`${API}${d.filePath}`)} style={{cursor:'pointer', color:colors.secondary, background:'none', border:'1px solid #ddd', padding:'4px 8px', borderRadius:4}}>📎 ดูไฟล์</button>
-                                    ) : '-'}
-                                </td>
-                                {/* 🔒 ปุ่มแก้ไข/ลบ: แสดงเฉพาะตอน Login */}
-                                {currentUser && (
-                                    <td style={{padding:12, border: `1px solid ${colors.border}`, textAlign:'center', verticalAlign:'top'}}>
-                                        <button onClick={()=>{setForm(d); setEditingId(d.id); setShowForm(true);}} style={{marginRight:8, cursor:'pointer', border:'none', background:'none', fontSize:16}} title="แก้ไข">📝</button>
-                                        <button onClick={()=>del(d.id)} style={{cursor:'pointer', border:'none', background:'none', fontSize:16}} title="ลบ">❌</button>
-                                    </td>
-                                )}
-                            </tr>
-                        ))
-                    )}
+                            )}
+                        </tr>
+                    ))}
+                    {data.length === 0 && <tr><td colSpan={5} style={{padding:20, textAlign:'center', color:'#999'}}>ไม่พบข้อมูล</td></tr>}
                 </tbody>
             </table>
         </div>
 
-        {/* Form Modal (ใช้ฟอร์มเดียวครอบจักรวาล) */}
+        {/* Modal Form */}
         {showForm && (
-            <div style={{position:'fixed', top:0, left:0, right:0, bottom:0, background:'rgba(0,0,0,0.5)', display:'flex', justifyContent:'center', alignItems:'center', zIndex:900}}>
-                <div style={{background:'white', padding:20, borderRadius:8, width:500, maxHeight:'90vh', overflowY:'auto'}}>
-                    <h3>{editingId ? 'แก้ไขรายการ' : 'เพิ่มรายการใหม่'}</h3>
-                    <div style={{marginBottom:15}}>
-                        <label style={{display:'block', marginBottom:5}}>วันที่</label>
-                        <input type="date" value={form.date || form.receiveDate || form.bookingDate || form.effectiveDate || ''} 
-                               onChange={e=>handleInput(tab.includes('incoming')?'receiveDate': tab==='meeting'?'bookingDate': tab==='orders'?'effectiveDate':'date', e.target.value)} 
-                               style={{width:'100%', padding:8, border:'1px solid #ccc', borderRadius:4}}/>
+            <div style={{position:'fixed', top:0, left:0, right:0, bottom:0, background:'rgba(0,0,0,0.5)', display:'flex', justifyContent:'center', alignItems:'center', zIndex:1000}}>
+                <div style={{background:'white', padding:20, borderRadius:10, width:500, maxHeight:'90vh', overflowY:'auto'}}>
+                    <h3 style={{marginTop:0}}>{editingId ? 'แก้ไขรายการ' : 'เพิ่มรายการใหม่'}</h3>
+                    {/* Form Fields (ปรับใช้ร่วมกัน) */}
+                    <div style={{marginBottom:10}}><label>วันที่</label><input type="date" value={form.date || form.receiveDate || ''} onChange={e=>handleInput(tab.includes('incoming')?'receiveDate':'date', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc', borderRadius:5}}/></div>
+                    <div style={{marginBottom:10}}><label>เลขที่/ลำดับ</label><input value={form.docNumber || form.receiptNumber || ''} onChange={e=>handleInput('docNumber', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc', borderRadius:5}}/></div>
+                    <div style={{marginBottom:10}}><label>เรื่อง/รายละเอียด</label><input value={form.subject || form.childName || ''} onChange={e=>handleInput('subject', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc', borderRadius:5}}/></div>
+                    <div style={{marginBottom:10}}><label>หน่วยงาน/ผู้ส่ง/ผู้รับ</label><input value={form.source || form.recipientName || ''} onChange={e=>handleInput('source', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc', borderRadius:5}}/></div>
+                    
+                    <div style={{marginBottom:10}}>
+                        <label>แนบไฟล์</label>
+                        <input type="file" onChange={e => { if(e.target.files && e.target.files[0]) handleInput('file', e.target.files[0]); }} style={{marginTop:5}} />
                     </div>
-                    
-                    {/* Input แบบปรับเปลี่ยนตาม Tab */}
-                    {['incoming-director', 'incoming-general', 'ext-wrpk', 'orders'].some(t => tab.includes(t)) && (
-                         <div style={{marginBottom:15}}><label style={{display:'block', marginBottom:5}}>เลขที่หนังสือ</label><input value={form.docNumber||''} onChange={e=>handleInput('docNumber', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc', borderRadius:4}}/></div>
-                    )}
-                    
-                    {tab === 'outgoing-mail' && (
-                         <div style={{marginBottom:15}}><label style={{display:'block', marginBottom:5}}>เลขที่ใบเสร็จ</label><input value={form.receiptNumber||''} onChange={e=>handleInput('receiptNumber', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc', borderRadius:4}}/></div>
-                    )}
 
-                    <div style={{marginBottom:15}}>
-                        <label style={{display:'block', marginBottom:5}}>รายละเอียด / เรื่อง / ชื่อ</label>
-                        <input value={form.subject || form.childName || form.deceasedName || form.purpose || ''} 
-                               onChange={e=>handleInput(tab.includes('reg-birth')?'childName': tab.includes('reg-death')?'deceasedName': tab==='meeting'?'purpose':'subject', e.target.value)} 
-                               style={{width:'100%', padding:8, border:'1px solid #ccc', borderRadius:4}}/>
-                    </div>
-                    
-                    {/* Inputs เพิ่มเติมแบบง่าย */}
-                    <div style={{marginBottom:15}}><label style={{display:'block', marginBottom:5}}>หน่วยงาน/ผู้รับ/ผู้ส่ง (ถ้ามี)</label><input value={form.source || form.recipientName || form.department || ''} onChange={e=>handleInput(tab==='meeting'?'department': tab==='outgoing-mail'?'recipientName':'source', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc', borderRadius:4}}/></div>
-                    
-                    <div style={{marginBottom:15}}>
-                        <label style={{display:'block', marginBottom:5}}>แนบไฟล์ (PDF/รูปภาพ)</label>
-                        <input type="file" onChange={e => { if (e.target.files && e.target.files.length > 0) handleInput('file', e.target.files[0]); }} style={{marginTop:5}} />
-                    </div>
-                    
                     <div style={{display:'flex', gap:10, marginTop:20}}>
-                        <button onClick={save} style={{flex:1, background:colors.primary, color:'white', padding:10, border:'none', borderRadius:5, cursor:'pointer'}}>บันทึก</button>
-                        <button onClick={()=>setShowForm(false)} style={{flex:1, background:'#ddd', padding:10, border:'none', borderRadius:5, cursor:'pointer'}}>ยกเลิก</button>
+                        <button onClick={save} style={{flex:1, background:colors.secondary, color:'white', padding:10, border:'none', borderRadius:5, cursor:'pointer'}}>บันทึก</button>
+                        <button onClick={()=>setShowForm(false)} style={{flex:1, background:'#e2e8f0', padding:10, border:'none', borderRadius:5, cursor:'pointer'}}>ยกเลิก</button>
                     </div>
                 </div>
             </div>
         )}
 
-        {/* Modal Login (ซ้ำเพื่อให้เรียกใช้ได้ทุกหน้า) */}
-        {isLoginModalOpen && (
-              <div style={{position:'fixed', top:0, left:0, right:0, bottom:0, background:'rgba(0,0,0,0.5)', display:'flex', justifyContent:'center', alignItems:'center', zIndex:1000}}>
-                  <div style={{background:'white', padding:30, borderRadius:10, width:350, boxShadow:'0 10px 25px rgba(0,0,0,0.2)'}}>
-                      <h3 style={{textAlign:'center', marginTop:0, color:colors.primary}}>🔐 เข้าสู่ระบบเจ้าหน้าที่</h3>
-                      {loginError && <div style={{background:'#fee2e2', color:'#b91c1c', padding:10, borderRadius:5, marginBottom:10, fontSize:14}}>{loginError}</div>}
-                      <div style={{marginBottom:10}}><label>Username</label><input value={loginForm.username} onChange={e=>setLoginForm({...loginForm, username:e.target.value})} style={{width:'100%', padding:10, marginTop:5, border:'1px solid #ccc'}} /></div>
-                      <div style={{marginBottom:20}}><label>Password</label><input type="password" value={loginForm.password} onChange={e=>setLoginForm({...loginForm, password:e.target.value})} style={{width:'100%', padding:10, marginTop:5, border:'1px solid #ccc'}} /></div>
-                      <button onClick={handleLogin} style={{width:'100%', padding:12, background:colors.primary, color:'white', border:'none', borderRadius:5, cursor:'pointer'}}>เข้าสู่ระบบ</button>
-                      <button onClick={()=>setIsLoginModalOpen(false)} style={{width:'100%', padding:10, background:'transparent', color:'#666', border:'none', marginTop:10, cursor:'pointer'}}>ยกเลิก</button>
-                  </div>
-              </div>
-        )}
-
         {/* File Preview */}
         {previewUrl && (
-            <div style={{position:'fixed', top:0, left:0, width:'100%', height:'100%', background:'rgba(0,0,0,0.9)', zIndex: 1200, display:'flex', justifyContent:'center', alignItems:'center'}}>
+            <div style={{position:'fixed', top:0, left:0, width:'100%', height:'100%', background:'rgba(0,0,0,0.9)', zIndex: 3000, display:'flex', justifyContent:'center', alignItems:'center'}}>
                 <div style={{width:'90%', height:'90%', background:'white', position:'relative'}}>
-                     <button onClick={()=>setPreviewUrl(null)} style={{position:'absolute', right:-15, top:-15, background:'red', color:'white', borderRadius:'50%', width:35, height:35, cursor:'pointer', border:'2px solid white', fontSize:16}}>X</button>
-                     <iframe src={previewUrl} width="100%" height="100%" style={{border:'none'}} />
+                     <button onClick={()=>setPreviewUrl(null)} style={{position:'absolute', right:-15, top:-15, background:'red', color:'white', borderRadius:'50%', width:30, height:30, cursor:'pointer', border:'2px solid white'}}>X</button>
+                     <iframe src={previewUrl} width="100%" height="100%" />
                 </div>
             </div>
         )}
