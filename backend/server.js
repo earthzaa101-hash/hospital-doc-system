@@ -7,33 +7,33 @@ const fs = require('fs');
 
 const app = express();
 
-// 1. ตั้งค่า CORS (อนุญาตให้หน้าเว็บคุยกับ Server)
+// 1. อนุญาตให้หน้าเว็บคุยกับ Server (รวมถึง PUT/DELETE)
 app.use(cors({
-    origin: '*', 
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // ✅ ต้องมี PUT ถึงจะแก้ไขได้
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
 app.use(express.json());
 
-// สร้างโฟลเดอร์เก็บไฟล์ (ถ้าไม่มี)
+// สร้างโฟลเดอร์เก็บไฟล์
 if (!fs.existsSync('./uploads')) fs.mkdirSync('./uploads');
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// 2. เชื่อมต่อ Database (Supabase)
+// 2. เชื่อมต่อฐานข้อมูล Supabase
 const pool = new Pool({
   host: 'aws-0-ap-southeast-1.pooler.supabase.com',
   port: 6543,
   user: 'postgres.brrmhtplavomtxdfadds',           // User ของคุณ
-  password: 'Hos*Esarab#159',      // ⚠️ อย่าลืมแก้รหัสผ่านให้ถูกต้อง!
+  password: 'Hos*Esarab#159',      // ⚠️ อย่าลืมแก้รหัสผ่านให้ถูกต้อง! (สำคัญมาก)
   database: 'postgres',
   ssl: { rejectUnauthorized: false }
 });
 
-// ตั้งค่าการอัปโหลดไฟล์
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, 'uploads/'),
   filename: (req, file, cb) => {
+    // แก้ชื่อไฟล์ภาษาไทยให้ไม่เพี้ยน
     const safeName = Buffer.from(file.originalname, 'latin1').toString('utf8');
     cb(null, Date.now() + '-' + safeName);
   }
@@ -52,7 +52,7 @@ app.post('/login', async (req, res) => {
     } catch (err) { res.status(500).send(err.message); }
 });
 
-// อ่านข้อมูล (Read)
+// อ่านข้อมูล
 app.get('/docs/:tab', async (req, res) => {
     try {
         const result = await pool.query("SELECT * FROM documents WHERE tab = $1 ORDER BY id DESC", [req.params.tab]);
@@ -60,7 +60,7 @@ app.get('/docs/:tab', async (req, res) => {
     } catch (err) { res.status(500).send(err.message); }
 });
 
-// เพิ่มข้อมูล (Create)
+// เพิ่มข้อมูลใหม่ (POST)
 app.post('/docs/:tab', upload.single('file'), async (req, res) => {
     try {
         const data = JSON.parse(req.body.data || '{}');
@@ -73,7 +73,7 @@ app.post('/docs/:tab', upload.single('file'), async (req, res) => {
     } catch (err) { res.status(500).send(err.message); }
 });
 
-// ✅ แก้ไขข้อมูล (Update/PUT) <-- นี่คือส่วนที่ขาดไป ทำให้ขึ้น Error
+// ✅ แก้ไขข้อมูล (PUT) <-- นี่คือส่วนที่ขาดไปครับ
 app.put('/docs/:tab/:id', upload.single('file'), async (req, res) => {
     try {
         const newData = JSON.parse(req.body.data || '{}');
@@ -99,7 +99,7 @@ app.put('/docs/:tab/:id', upload.single('file'), async (req, res) => {
     }
 });
 
-// ลบข้อมูล (Delete)
+// ลบข้อมูล (DELETE)
 app.delete('/docs/:tab/:id', async (req, res) => {
     try {
         await pool.query("DELETE FROM documents WHERE id = $1 AND tab = $2", [req.params.id, req.params.tab]);
