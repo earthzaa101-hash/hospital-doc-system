@@ -365,9 +365,12 @@ export default function HospitalDocSystem() {
                   <div style={{marginBottom:10}}><label>วัตถุประสงค์</label><input value={form.purpose||''} onChange={e=>handleInput('purpose', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>
               </>}
 
-              {(!['meeting', 'outgoing-mail', 'stamp'].includes(tab) && !tab.includes('ext')) && <>
-                  <div style={{marginBottom:10}}><label>เรื่อง / ชื่อ</label><input value={form.subject || form.childName || form.deceasedName || ''} onChange={e=>handleInput(tab.includes('reg-birth')?'childName':tab.includes('reg-death')?'deceasedName':'subject', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>
+             {(!['meeting', 'outgoing-mail', 'stamp'].includes(tab) && !tab.includes('ext')) && <>
+                  {/* ย้ายเลขที่หนังสือ/คำสั่ง มาไว้ก่อนชื่อเรื่อง */}
                   {(tab.includes('incoming') || tab==='orders') && <div style={{marginBottom:10}}><label>เลขที่หนังสือ/คำสั่ง</label><input value={form.docNumber||''} onChange={e=>handleInput('docNumber', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>}
+                  
+                  <div style={{marginBottom:10}}><label>เรื่อง / ชื่อ</label><input value={form.subject || form.childName || form.deceasedName || ''} onChange={e=>handleInput(tab.includes('reg-birth')?'childName':tab.includes('reg-death')?'deceasedName':'subject', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>
+                  
                   {tab.includes('incoming') && <>
                       <div style={{marginBottom:10}}><label>จากหน่วยงาน</label><input value={form.source||''} onChange={e=>handleInput('source', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>
                       <div style={{marginBottom:10}}><label>ถึง</label><input value={form.recipientName||''} onChange={e=>handleInput('recipientName', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>
