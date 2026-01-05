@@ -329,68 +329,95 @@ export default function HospitalDocSystem() {
   );
 
   const renderFormModal = () => (
-      <div style={{position:'fixed', top:0, left:0, right:0, bottom:0, background:'rgba(0,0,0,0.5)', display:'flex', justifyContent:'center', alignItems:'center', zIndex:1000}}>
-          <div style={{background:'white', padding:20, borderRadius:10, width:500, maxHeight:'90vh', overflowY:'auto'}}>
-              <h3>{editingId ? 'แก้ไข' : 'เพิ่ม'} ข้อมูล</h3>
+      <div style={{
+          position:'fixed', top:0, left:0, right:0, bottom:0, 
+          background:'rgba(0,0,0,0.6)', // สีพื้นหลังเข้มขึ้นนิดนึงให้อ่านง่าย
+          display:'flex', justifyContent:'center', alignItems:'center', 
+          zIndex:1000,
+          padding: '10px' // กันขอบชนจอ
+      }}>
+          <div style={{
+              background:'white', 
+              padding:'20px', 
+              borderRadius:'10px', 
+              width:'100%', 
+              maxWidth:'600px', // บนคอมกว้างไม่เกิน 600px
+              maxHeight:'90vh', // สูงไม่เกิน 90% ของจอ
+              overflowY:'auto', // ถ้าเนื้อหายาว ให้เลื่อนขึ้นลงได้
+              boxSizing: 'border-box',
+              boxShadow: '0 4px 15px rgba(0,0,0,0.2)'
+          }}>
+              <h3 style={{marginTop:0, borderBottom:`1px solid ${colors.border}`, paddingBottom:10, color: colors.primary}}>
+                  {editingId ? '✏️ แก้ไขข้อมูล' : '➕ เพิ่มข้อมูลใหม่'}
+              </h3>
               
-              <div style={{marginBottom:10}}><label>วันที่</label><input type="date" value={form.date || form.receiveDate || form.bookingDate || form.sendDate || form.effectiveDate || ''} onChange={e=>handleInput(tab.includes('incoming')?'receiveDate':tab==='meeting'?'bookingDate':tab==='outgoing-mail'?'sendDate':tab==='orders'?'effectiveDate':'date', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>
-
-              {tab === 'outgoing-mail' && <>
-                  <div style={{marginBottom:10}}><label>เลขที่ใบเสร็จ</label><input value={form.receiptNumber||''} onChange={e=>handleInput('receiptNumber', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>
-                  <div style={{marginBottom:10}}><label>ค่าส่ง (บาท)</label><input type="number" value={form.amount||''} onChange={e=>handleInput('amount', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>
-                  <div style={{marginBottom:10}}><label>ผู้รับปลายทาง</label><input value={form.recipientName||''} onChange={e=>handleInput('recipientName', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>
-                  <div style={{marginBottom:10}}><label>เรื่อง</label><input value={form.subject||''} onChange={e=>handleInput('subject', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>
-              </>}
-
-              {tab.includes('ext') && <>
-                   <div style={{marginBottom:10}}><label>เลขที่หนังสือ</label><input value={form.docNumber||''} onChange={e=>handleInput('docNumber', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>
-                   <div style={{marginBottom:10}}><label>เรื่อง</label><input value={form.subject||''} onChange={e=>handleInput('subject', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>
-                   <div style={{marginBottom:10}}><label>เรียน (ผู้รับ)</label><input value={form.recipientName||''} onChange={e=>handleInput('recipientName', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>
-              </>}
-
-              {tab === 'stamp' && <>
-                   <div style={{marginBottom:10}}><label>รายการ (เหตุผล)</label><input value={form.reason||''} onChange={e=>handleInput('reason', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>
-                   <div style={{marginBottom:10}}><label>จำนวนเงิน (บาท)</label><input type="number" value={form.amount||''} onChange={e=>handleInput('amount', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>
-                   {/* แสดงผู้เบิก ถ้าไม่ใช่การซื้อเพิ่ม */}
-                   {form.transactionType !== 'ADD' && <div style={{marginBottom:10}}><label>ผู้เบิก</label><input value={form.requester||''} onChange={e=>handleInput('requester', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>}
-              </>}
-
-              {tab === 'meeting' && <>
-                  <div style={{display:'flex', gap:10}}>
-                       <div style={{flex:1}}><label>เริ่ม</label><input type="time" value={form.startTime||''} onChange={e=>handleInput('startTime', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>
-                       <div style={{flex:1}}><label>ถึง</label><input type="time" value={form.endTime||''} onChange={e=>handleInput('endTime', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>
+              <div style={{display:'flex', flexDirection:'column', gap:'15px'}}>
+                  {/* วันที่ (มีทุกหน้า) */}
+                  <div>
+                      <label style={{display:'block', marginBottom:5, fontWeight:'bold', fontSize:'0.9rem'}}>วันที่</label>
+                      <input type="date" value={form.date || form.receiveDate || form.bookingDate || form.sendDate || form.effectiveDate || ''} onChange={e=>handleInput(tab.includes('incoming')?'receiveDate':tab==='meeting'?'bookingDate':tab==='outgoing-mail'?'sendDate':tab==='orders'?'effectiveDate':'date', e.target.value)} style={{width:'100%', padding:'10px', border:'1px solid #ccc', borderRadius:'5px', boxSizing:'border-box', fontSize:'1rem'}}/>
                   </div>
-                  <div style={{marginBottom:10}}><label>ห้อง</label><select value={form.room||'ห้องทับทิม'} onChange={e=>handleInput('room', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}><option>ห้องทับทิม</option><option>ห้องประชุมชั้น 8</option></select></div>
-                  <div style={{marginBottom:10}}><label>แผนก</label><input value={form.department||''} onChange={e=>handleInput('department', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>
-                  <div style={{marginBottom:10}}><label>วัตถุประสงค์</label><input value={form.purpose||''} onChange={e=>handleInput('purpose', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>
-              </>}
 
-             {(!['meeting', 'outgoing-mail', 'stamp'].includes(tab) && !tab.includes('ext')) && <>
-                  {/* ย้ายเลขที่หนังสือ/คำสั่ง มาไว้ก่อนชื่อเรื่อง */}
-                  {(tab.includes('incoming') || tab==='orders') && <div style={{marginBottom:10}}><label>เลขที่หนังสือ/คำสั่ง</label><input value={form.docNumber||''} onChange={e=>handleInput('docNumber', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>}
-                  
-                  <div style={{marginBottom:10}}><label>เรื่อง / ชื่อ</label><input value={form.subject || form.childName || form.deceasedName || ''} onChange={e=>handleInput(tab.includes('reg-birth')?'childName':tab.includes('reg-death')?'deceasedName':'subject', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>
-                  
-                  {tab.includes('incoming') && <>
-                      <div style={{marginBottom:10}}><label>จากหน่วยงาน</label><input value={form.source||''} onChange={e=>handleInput('source', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>
-                      <div style={{marginBottom:10}}><label>ถึง</label><input value={form.recipientName||''} onChange={e=>handleInput('recipientName', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>
-                      <div style={{marginBottom:10}}><label>Tracking (ถ้ามี)</label><input value={form.trackingNo||''} onChange={e=>handleInput('trackingNo', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>
+                  {/* SPECIFIC FIELDS */}
+                  {/* 1. Outgoing Mail */}
+                  {tab === 'outgoing-mail' && <>
+                      <div><label style={{display:'block', marginBottom:5, fontSize:'0.9rem'}}>เลขที่ใบเสร็จ</label><input value={form.receiptNumber||''} onChange={e=>handleInput('receiptNumber', e.target.value)} style={{width:'100%', padding:'10px', border:'1px solid #ccc', borderRadius:'5px', boxSizing:'border-box'}}/></div>
+                      <div><label style={{display:'block', marginBottom:5, fontSize:'0.9rem'}}>ค่าส่ง (บาท)</label><input type="number" value={form.amount||''} onChange={e=>handleInput('amount', e.target.value)} style={{width:'100%', padding:'10px', border:'1px solid #ccc', borderRadius:'5px', boxSizing:'border-box'}}/></div>
+                      <div><label style={{display:'block', marginBottom:5, fontSize:'0.9rem'}}>ผู้รับปลายทาง</label><input value={form.recipientName||''} onChange={e=>handleInput('recipientName', e.target.value)} style={{width:'100%', padding:'10px', border:'1px solid #ccc', borderRadius:'5px', boxSizing:'border-box'}}/></div>
+                      <div><label style={{display:'block', marginBottom:5, fontSize:'0.9rem'}}>เรื่อง</label><input value={form.subject||''} onChange={e=>handleInput('subject', e.target.value)} style={{width:'100%', padding:'10px', border:'1px solid #ccc', borderRadius:'5px', boxSizing:'border-box'}}/></div>
                   </>}
-              </>}
 
-              <div style={{marginBottom:10}}>
-                  <label>แนบไฟล์</label>
-                  <input type="file" onChange={e => { if(e.target.files && e.target.files[0]) handleInput('file', e.target.files[0]); }} style={{marginTop:5}} />
+                  {/* 2. External Books (หนังสือภายนอก) */}
+                  {tab.includes('ext') && <>
+                       <div><label style={{display:'block', marginBottom:5, fontSize:'0.9rem'}}>เลขที่หนังสือ</label><input value={form.docNumber||''} onChange={e=>handleInput('docNumber', e.target.value)} style={{width:'100%', padding:'10px', border:'1px solid #ccc', borderRadius:'5px', boxSizing:'border-box'}}/></div>
+                       <div><label style={{display:'block', marginBottom:5, fontSize:'0.9rem'}}>เรื่อง</label><input value={form.subject||''} onChange={e=>handleInput('subject', e.target.value)} style={{width:'100%', padding:'10px', border:'1px solid #ccc', borderRadius:'5px', boxSizing:'border-box'}}/></div>
+                       <div><label style={{display:'block', marginBottom:5, fontSize:'0.9rem'}}>เรียน (ผู้รับ)</label><input value={form.recipientName||''} onChange={e=>handleInput('recipientName', e.target.value)} style={{width:'100%', padding:'10px', border:'1px solid #ccc', borderRadius:'5px', boxSizing:'border-box'}}/></div>
+                  </>}
+
+                  {/* 3. Stamp Duty (อากรแสตมป์) */}
+                  {tab === 'stamp' && <>
+                       <div><label style={{display:'block', marginBottom:5, fontSize:'0.9rem'}}>รายการ (เหตุผล)</label><input value={form.reason||''} onChange={e=>handleInput('reason', e.target.value)} style={{width:'100%', padding:'10px', border:'1px solid #ccc', borderRadius:'5px', boxSizing:'border-box'}}/></div>
+                       <div><label style={{display:'block', marginBottom:5, fontSize:'0.9rem'}}>จำนวนเงิน (บาท)</label><input type="number" value={form.amount||''} onChange={e=>handleInput('amount', e.target.value)} style={{width:'100%', padding:'10px', border:'1px solid #ccc', borderRadius:'5px', boxSizing:'border-box'}}/></div>
+                       {form.transactionType !== 'ADD' && <div><label style={{display:'block', marginBottom:5, fontSize:'0.9rem'}}>ผู้เบิก</label><input value={form.requester||''} onChange={e=>handleInput('requester', e.target.value)} style={{width:'100%', padding:'10px', border:'1px solid #ccc', borderRadius:'5px', boxSizing:'border-box'}}/></div>}
+                  </>}
+
+                  {/* 4. Meeting */}
+                  {tab === 'meeting' && <>
+                      <div style={{display:'flex', gap:10}}>
+                           <div style={{flex:1}}><label style={{display:'block', marginBottom:5, fontSize:'0.9rem'}}>เริ่ม</label><input type="time" value={form.startTime||''} onChange={e=>handleInput('startTime', e.target.value)} style={{width:'100%', padding:'10px', border:'1px solid #ccc', borderRadius:'5px', boxSizing:'border-box'}}/></div>
+                           <div style={{flex:1}}><label style={{display:'block', marginBottom:5, fontSize:'0.9rem'}}>ถึง</label><input type="time" value={form.endTime||''} onChange={e=>handleInput('endTime', e.target.value)} style={{width:'100%', padding:'10px', border:'1px solid #ccc', borderRadius:'5px', boxSizing:'border-box'}}/></div>
+                      </div>
+                      <div><label style={{display:'block', marginBottom:5, fontSize:'0.9rem'}}>ห้อง</label><select value={form.room||'ห้องทับทิม'} onChange={e=>handleInput('room', e.target.value)} style={{width:'100%', padding:'10px', border:'1px solid #ccc', borderRadius:'5px', boxSizing:'border-box'}}><option>ห้องทับทิม</option><option>ห้องประชุมชั้น 8</option></select></div>
+                      <div><label style={{display:'block', marginBottom:5, fontSize:'0.9rem'}}>แผนก</label><input value={form.department||''} onChange={e=>handleInput('department', e.target.value)} style={{width:'100%', padding:'10px', border:'1px solid #ccc', borderRadius:'5px', boxSizing:'border-box'}}/></div>
+                      <div><label style={{display:'block', marginBottom:5, fontSize:'0.9rem'}}>วัตถุประสงค์</label><input value={form.purpose||''} onChange={e=>handleInput('purpose', e.target.value)} style={{width:'100%', padding:'10px', border:'1px solid #ccc', borderRadius:'5px', boxSizing:'border-box'}}/></div>
+                  </>}
+
+                  {/* 5. Incoming / Orders / Reg (Others) */}
+                  {(!['meeting', 'outgoing-mail', 'stamp'].includes(tab) && !tab.includes('ext')) && <>
+                      {(tab.includes('incoming') || tab==='orders') && <div><label style={{display:'block', marginBottom:5, fontSize:'0.9rem'}}>เลขที่หนังสือ/คำสั่ง</label><input value={form.docNumber||''} onChange={e=>handleInput('docNumber', e.target.value)} style={{width:'100%', padding:'10px', border:'1px solid #ccc', borderRadius:'5px', boxSizing:'border-box'}}/></div>}
+                      
+                      <div><label style={{display:'block', marginBottom:5, fontSize:'0.9rem'}}>เรื่อง / ชื่อ</label><input value={form.subject || form.childName || form.deceasedName || ''} onChange={e=>handleInput(tab.includes('reg-birth')?'childName':tab.includes('reg-death')?'deceasedName':'subject', e.target.value)} style={{width:'100%', padding:'10px', border:'1px solid #ccc', borderRadius:'5px', boxSizing:'border-box'}}/></div>
+                      
+                      {tab.includes('incoming') && <>
+                          <div><label style={{display:'block', marginBottom:5, fontSize:'0.9rem'}}>จากหน่วยงาน</label><input value={form.source||''} onChange={e=>handleInput('source', e.target.value)} style={{width:'100%', padding:'10px', border:'1px solid #ccc', borderRadius:'5px', boxSizing:'border-box'}}/></div>
+                          <div><label style={{display:'block', marginBottom:5, fontSize:'0.9rem'}}>ถึง</label><input value={form.recipientName||''} onChange={e=>handleInput('recipientName', e.target.value)} style={{width:'100%', padding:'10px', border:'1px solid #ccc', borderRadius:'5px', boxSizing:'border-box'}}/></div>
+                          <div><label style={{display:'block', marginBottom:5, fontSize:'0.9rem'}}>Tracking (ถ้ามี)</label><input value={form.trackingNo||''} onChange={e=>handleInput('trackingNo', e.target.value)} style={{width:'100%', padding:'10px', border:'1px solid #ccc', borderRadius:'5px', boxSizing:'border-box'}}/></div>
+                      </>}
+                  </>}
+
+                  <div>
+                      <label style={{display:'block', marginBottom:5, fontSize:'0.9rem'}}>แนบไฟล์</label>
+                      <input type="file" onChange={e => { if(e.target.files && e.target.files[0]) handleInput('file', e.target.files[0]); }} style={{marginTop:5, fontSize:'0.9rem'}} />
+                  </div>
               </div>
 
-              <div style={{display:'flex', gap:10, marginTop:20}}>
-                  <button onClick={save} style={{flex:1, background:colors.secondary, color:'white', padding:10, border:'none', borderRadius:5, cursor:'pointer'}}>บันทึก</button>
-                  <button onClick={()=>setShowForm(false)} style={{flex:1, background:'#e2e8f0', padding:10, border:'none', borderRadius:5, cursor:'pointer'}}>ยกเลิก</button>
+              <div style={{display:'flex', gap:10, marginTop:25, borderTop:`1px solid ${colors.border}`, paddingTop:15}}>
+                  <button onClick={save} style={{flex:1, background:colors.secondary, color:'white', padding:'12px', border:'none', borderRadius:'5px', cursor:'pointer', fontWeight:'bold', fontSize:'1rem'}}>บันทึก</button>
+                  <button onClick={()=>setShowForm(false)} style={{flex:1, background:'#e2e8f0', color:colors.text, padding:'12px', border:'none', borderRadius:'5px', cursor:'pointer', fontSize:'1rem'}}>ยกเลิก</button>
               </div>
           </div>
       </div>
   );
-
   // 🔴 จุดแก้ไขสำคัญ: ปรับปรุงปุ่มเพิ่มรายการ (Main Add Button)
   const handleMainAdd = () => {
       // ตั้งค่าเริ่มต้นของ Form ให้เหมาะสมกับ Tab
@@ -416,24 +443,54 @@ export default function HospitalDocSystem() {
       </div>
   );
 
-  if(!menuId) return (
-      <div style={{padding: 20, background: colors.bg, minHeight:'100vh', fontFamily:'Sarabun, sans-serif'}}>
-          <div style={{display:'flex', justifyContent:'center', alignItems:'center', marginBottom:30, position:'relative'}}>
-               <h1 style={{color: '#1e293b'}}>🏥 Hospital E-Saraban System</h1>
+ if(!menuId) return (
+      <div style={{
+          padding: '20px 10px', // บนล่าง 20, ซ้ายขวา 10 (ลดขอบมือถือ)
+          background: colors.bg, 
+          minHeight:'100vh', 
+          fontFamily:'Sarabun, sans-serif',
+          boxSizing: 'border-box' // สำคัญ! กันขอบล้น
+      }}>
+          <div style={{display:'flex', justifyContent:'center', alignItems:'center', marginBottom:20, position:'relative'}}>
+               <h1 style={{color: '#1e293b', fontSize: 'clamp(1.2rem, 4vw, 2rem)', margin:0}}>🏥 Hospital E-Saraban</h1> {/* ตัวหนังสือยืดหดตามจอ */}
                <div style={{position:'absolute', right:0}}>
                    {currentUser ? (
-                       <span>👤 {currentUser.fullname} <button onClick={handleLogout} style={{color:'red', cursor:'pointer', border:'none', background:'none'}}>Logout</button></span>
+                       <div style={{display:'flex', flexDirection:'column', alignItems:'flex-end'}}>
+                           <span style={{fontSize:'0.8rem'}}>👤 {currentUser.fullname}</span>
+                           <button onClick={handleLogout} style={{color:'red', cursor:'pointer', border:'none', background:'none', fontSize:'0.8rem'}}>Logout</button>
+                       </div>
                    ) : (
-                       <button onClick={()=>setIsLoginModalOpen(true)} style={{padding:'5px 15px', cursor:'pointer'}}>🔐 Login</button>
+                       <button onClick={()=>setIsLoginModalOpen(true)} style={{padding:'5px 10px', cursor:'pointer', fontSize:'0.9rem'}}>🔐 Login</button>
                    )}
                </div>
           </div>
-          <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(250px, 1fr))', gap:20, maxWidth:1200, margin:'0 auto'}}>
+          
+          {/* 👇 แก้ Grid ตรงนี้ครับ ให้มัน Auto Fit เต็มจอ */}
+          <div style={{
+              display:'grid', 
+              gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))', // มือถือ 140px (ขึ้น 2-3 อัน), คอมขยายเต็ม
+              gap:'15px', 
+              width: '100%', 
+              boxSizing: 'border-box'
+          }}>
               {mainMenu.map(m => (
                   <div key={m.id} onClick={()=>{ setMenuId(m.id); if(m.sub.length) setTab(m.sub[0].id); }} 
-                       style={{background: 'white', padding: 30, borderRadius: 15, cursor:'pointer', textAlign:'center', boxShadow:'0 2px 5px rgba(0,0,0,0.05)', height:150, display:'flex', flexDirection:'column', justifyContent:'center', alignItems:'center'}}>
-                      <div style={{fontSize: 40, marginBottom: 10}}>{m.icon}</div>
-                      <div style={{fontSize: 18, fontWeight:'bold'}}>{m.title}</div>
+                       style={{
+                           background: 'white', 
+                           padding: '20px 10px', 
+                           borderRadius: 15, 
+                           cursor:'pointer', 
+                           textAlign:'center', 
+                           boxShadow:'0 2px 5px rgba(0,0,0,0.05)', 
+                           minHeight:'120px', // ความสูงยืดหยุ่น
+                           display:'flex', 
+                           flexDirection:'column', 
+                           justifyContent:'center', 
+                           alignItems:'center',
+                           border: '1px solid #e2e8f0'
+                       }}>
+                      <div style={{fontSize: '2.5rem', marginBottom: 5}}>{m.icon}</div>
+                      <div style={{fontSize: '1rem', fontWeight:'bold', lineHeight: 1.2}}>{m.title}</div>
                   </div>
               ))}
           </div>
@@ -442,38 +499,63 @@ export default function HospitalDocSystem() {
 
   const currentMenu = mainMenu.find(m => m.id === menuId);
   return (
-    <div style={{padding: 20, background: colors.bg, minHeight:'100vh', fontFamily:'Sarabun, sans-serif'}}>
-        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20}}>
-            <div>
-                <button onClick={()=>setMenuId(null)} style={{background:'white', border:'1px solid #ccc', padding:'5px 15px', marginRight:10, cursor:'pointer'}}>⬅ หน้าหลัก</button>
-                <span style={{fontSize:20, fontWeight:'bold'}}>{currentMenu?.title}</span>
+    <div style={{
+        padding: '10px',           // ลดขอบเหลือ 10px เพื่อให้พื้นที่ใช้งานเยอะที่สุดบนมือถือ
+        background: colors.bg, 
+        minHeight:'100vh', 
+        fontFamily:'Sarabun, sans-serif',
+        boxSizing: 'border-box',   // บังคับให้ Padding ไม่ดันจนเฟรมล้น
+        width: '100%',
+        maxWidth: '100vw',
+        overflowX: 'hidden'        // ป้องกันสกรอลแนวนอนของทั้งหน้า
+    }}>
+        {/* Header Bar */}
+        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:15}}>
+            <div style={{display:'flex', alignItems:'center', gap: 8}}>
+                <button onClick={()=>setMenuId(null)} style={{background:'white', border:'1px solid #ccc', padding:'6px 12px', borderRadius:5, cursor:'pointer', fontSize:'1rem'}}>⬅</button>
+                <span style={{fontSize:'1.1rem', fontWeight:'bold', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth:'60vw'}}>{currentMenu?.title}</span>
             </div>
-            {currentUser && <div>👤 {currentUser.fullname} <button onClick={handleLogout} style={{color:'red', cursor:'pointer', border:'none', background:'none'}}>Logout</button></div>}
+            {currentUser && <div style={{fontSize:'0.8rem', textAlign:'right', lineHeight:1.2}}>👤 {currentUser.fullname.split(' ')[0]} <br/><span onClick={handleLogout} style={{color:'red', cursor:'pointer', textDecoration:'underline'}}>ออกระบบ</span></div>}
         </div>
         
-        <div style={{marginBottom: 20}}>
+        {/* Tabs (Scroll แนวนอนได้บนมือถือ) */}
+        <div style={{marginBottom: 15, display:'flex', gap:8, overflowX:'auto', paddingBottom:5, scrollbarWidth:'none'}}>
             {currentMenu?.sub.map(s => (
-                <button key={s.id} onClick={()=>setTab(s.id)} style={{padding:'8px 20px', border:'none', borderRadius:20, marginRight:10, cursor:'pointer', background: tab===s.id ? '#1e293b' : '#cbd5e1', color: tab===s.id ? 'white' : 'black'}}>
+                <button key={s.id} onClick={()=>setTab(s.id)} style={{
+                    padding:'8px 16px', border:'none', borderRadius:20, cursor:'pointer', whiteSpace:'nowrap', flexShrink: 0, fontSize:'0.9rem',
+                    background: tab===s.id ? '#1e3a8a' : '#cbd5e1', color: tab===s.id ? 'white' : 'black', boxShadow: tab===s.id ? '0 2px 4px rgba(0,0,0,0.2)' : 'none'
+                }}>
                     {s.label}
                 </button>
             ))}
         </div>
 
-        <div style={{background:'white', padding:15, borderRadius:10, marginBottom:20, display:'flex', gap:10, flexWrap:'wrap'}}>
-            {currentUser && <button onClick={handleMainAdd} style={{background: colors.secondary, color:'white', padding:'8px 15px', border:'none', borderRadius:5, cursor:'pointer'}}>+ เพิ่มรายการ</button>}
-            <div style={{flexGrow:1}} />
-            <input placeholder="ค้นหา..." value={tempSearchTerm} onChange={e=>setTempSearchTerm(e.target.value)} style={{padding:8, border:'1px solid #ccc'}} />
-            <button onClick={()=>setActiveSearchTerm(tempSearchTerm)} style={{cursor:'pointer'}}>🔍</button>
-            <button onClick={()=>handleExport('excel')} style={{background:colors.success, color:'white', border:'none', padding:'5px 10px', borderRadius:5, cursor:'pointer'}}>Excel</button>
-            <button onClick={()=>handleExport('pdf')} style={{background:colors.danger, color:'white', border:'none', padding:'5px 10px', borderRadius:5, cursor:'pointer'}}>PDF</button>
+        {/* Action Bar (Search & Buttons) - ปรับให้ Flex Wrap เพื่อไม่ให้ล้นจอ */}
+        <div style={{background:'white', padding:10, borderRadius:8, marginBottom:15, display:'flex', gap:10, flexWrap:'wrap', alignItems:'center', boxShadow:'0 1px 3px rgba(0,0,0,0.05)'}}>
+            {currentUser && <button onClick={handleMainAdd} style={{background: colors.secondary, color:'white', padding:'8px 12px', border:'none', borderRadius:5, cursor:'pointer', flexGrow: 1, minWidth:'100px', fontWeight:'bold'}}>+ เพิ่มรายการ</button>}
+            
+            <div style={{display:'flex', gap:5, flexGrow: 3, minWidth: '200px', width: '100%'}}>
+                <input placeholder="ค้นหา..." value={tempSearchTerm} onChange={e=>setTempSearchTerm(e.target.value)} style={{padding:'8px', border:'1px solid #ccc', borderRadius:5, width:'100%', flex:1}} />
+                <button onClick={()=>setActiveSearchTerm(tempSearchTerm)} style={{cursor:'pointer', border:'none', background:'#e2e8f0', borderRadius:5, padding:'0 12px'}}>🔍</button>
+            </div>
+            
+            <div style={{display:'flex', gap:5, marginLeft:'auto', flexGrow: 0}}>
+                <button onClick={()=>handleExport('excel')} style={{background:colors.success, color:'white', border:'none', padding:'8px 12px', borderRadius:5, cursor:'pointer', fontSize:'0.9rem'}}>XLS</button>
+                <button onClick={()=>handleExport('pdf')} style={{background:colors.danger, color:'white', border:'none', padding:'8px 12px', borderRadius:5, cursor:'pointer', fontSize:'0.9rem'}}>PDF</button>
+            </div>
         </div>
 
-        {renderContent()}
+        {/* Content Render Area (ตารางข้อมูล) */}
+        <div style={{width: '100%', overflowX: 'auto', paddingBottom: 20}}>
+            {renderContent()}
+        </div>
+
+        {/* Modals */}
         {showForm && renderFormModal()}
         {previewUrl && <div style={{position:'fixed', top:0, left:0, width:'100%', height:'100%', background:'rgba(0,0,0,0.9)', zIndex: 3000, display:'flex', justifyContent:'center', alignItems:'center'}}>
-            <div style={{width:'90%', height:'90%', background:'white', position:'relative'}}>
-                 <button onClick={()=>setPreviewUrl(null)} style={{position:'absolute', right:-15, top:-15, background:'red', color:'white', borderRadius:'50%', width:30, height:30, cursor:'pointer', border:'2px solid white'}}>X</button>
-                 <iframe src={previewUrl} width="100%" height="100%" />
+            <div style={{width:'95%', height:'90%', background:'white', position:'relative', maxWidth:'800px'}}>
+                 <button onClick={()=>setPreviewUrl(null)} style={{position:'absolute', right:-10, top:-10, background:'red', color:'white', borderRadius:'50%', width:30, height:30, cursor:'pointer', border:'2px solid white', fontWeight:'bold'}}>X</button>
+                 <iframe src={previewUrl} width="100%" height="100%" style={{border:'none'}} />
             </div>
         </div>}
     </div>
