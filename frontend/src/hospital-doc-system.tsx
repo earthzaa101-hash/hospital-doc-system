@@ -171,7 +171,7 @@ export default function HospitalDocSystem() {
           body = data.map(d => [formatDate(d.bookingDate), `${d.startTime}-${d.endTime}`, d.room, d.department, d.purpose]);
       } else if (tab.includes('ext')) {
           headers = ['เลขที่หนังสือ', 'วันที่ออก', 'เรื่อง', 'เรียน'];
-          body = data.map(d => [formatDate(d.date), d.docNumber, d.subject, d.recipientName]);
+          body = data.map(d => [formatDate(d.docNumber), d.date, d.subject, d.recipientName]);
       } else if (tab === 'stamp') {
           headers = ['วันที่', 'รายการ', 'รับ', 'จ่าย', 'ผู้เบิก'];
           body = data.map(d => [formatDate(d.date), d.reason, d.transactionType==='ADD'?d.amount:'-', d.transactionType==='USE'?d.amount:'-', d.requester]);
@@ -289,7 +289,7 @@ export default function HospitalDocSystem() {
       let headers = ['วันที่', 'เรื่อง/รายละเอียด', 'ไฟล์'];
       let keys = ['date', 'subject', 'filePath'];
       if(tab.includes('incoming')) { headers = ['วันที่รับ', 'เลขที่หนังสือ', 'จาก', 'ถึง', 'เรื่อง', 'Tracking', 'ไฟล์']; keys = ['receiveDate', 'docNumber', 'source', 'recipientName', 'subject', 'trackingNo', 'filePath']; }
-      else if(tab.includes('ext')) { headers = ['เลขที่หนังสือ', 'วันที่ออก', 'เรื่อง', 'เรียน', 'ไฟล์']; keys = ['date', 'docNumber', 'subject', 'recipientName', 'filePath']; }
+      else if(tab.includes('ext')) { headers = ['เลขที่หนังสือ', 'วันที่ออก', 'เรื่อง', 'เรียน', 'ไฟล์']; keys = ['docNumber', 'date', 'subject', 'recipientName', 'filePath']; }
       else if(tab.includes('reg-birth')) { headers = ['เกิดวันที่', 'เวลา', 'ชื่อเด็ก', 'ชื่อบิดา-มารดา', 'ไฟล์']; keys = ['date', 'time', 'childName', 'parents', 'filePath']; }
       else if(tab.includes('reg-death')) { headers = ['เสียชีวิตวันที่', 'เวลา', 'ชื่อผู้เสียชีวิต', 'สาเหตุ', 'จัดการศพ']; keys = ['date', 'time', 'deceasedName', 'cause', 'funeral']; }
       else if(tab.includes('orders')) { headers = ['วันที่บังคับใช้', 'เลขที่คำสั่ง', 'เรื่อง', 'ไฟล์']; keys = ['effectiveDate', 'docNumber', 'subject', 'filePath']; }
