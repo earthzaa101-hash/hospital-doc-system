@@ -292,7 +292,7 @@ export default function HospitalDocSystem() {
       else if(tab.includes('ext')) { headers = ['เลขที่หนังสือ', 'วันที่ออก', 'เรื่อง', 'เรียน', 'ไฟล์']; keys = ['docNumber', 'date', 'subject', 'recipientName', 'filePath']; }
       else if(tab.includes('reg-birth')) { headers = ['เกิดวันที่', 'เวลา', 'ชื่อเด็ก', 'ชื่อบิดา-มารดา', 'ไฟล์']; keys = ['date', 'time', 'childName', 'parents', 'filePath']; }
       else if(tab.includes('reg-death')) { headers = ['เสียชีวิตวันที่', 'เวลา', 'ชื่อผู้เสียชีวิต', 'สาเหตุ', 'จัดการศพ']; keys = ['date', 'time', 'deceasedName', 'cause', 'funeral']; }
-      else if(tab.includes('orders')) { headers = ['เลขที่คำสั่ง', 'วันที่บังคับใช้', 'เรื่อง', 'ไฟล์']; keys = ['DocNumber', 'effectiveDate', 'subject', 'filePath']; }
+      else if(tab.includes('orders')) { headers = ['เลขที่คำสั่ง', 'วันที่บังคับใช้', 'เรื่อง', 'ไฟล์']; keys = ['docNumber', 'effectiveDate', 'subject', 'filePath']; }
 
       return renderStandardTable(headers, keys);
   };
