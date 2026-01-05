@@ -69,8 +69,8 @@ export default function HospitalDocSystem() {
         if(tab === 'stamp') {
             let bal = 0;
             rawData.forEach((d:any) => {
-                if(d.transactionType === 'ADD') bal += (d.amount || 0);
-                else bal -= (d.amount || 0);
+                if(d.transactionType === 'ADD') bal += (parseFloat(d.amount) || 0);
+                else bal -= (parseFloat(d.amount) || 0);
             });
             setStampBalance(bal);
         }
@@ -94,7 +94,7 @@ export default function HospitalDocSystem() {
           setLoginForm({ username: '', password: '' });
           alert(`ยินดีต้อนรับ: ${res.data.fullname} ✅`);
       } catch (err: any) {
-          alert(`เข้าสู่ระบบไม่สำเร็จ: ${err.response?.data?.error || 'เชื่อมต่อ Server ไม่ได้'}`);
+          alert(`เข้าสู่ระบบไม่สำเร็จ: ${err.response?.data?.error || err.message}`);
       } finally { setLoginLoading(false); }
   };
 
@@ -104,25 +104,38 @@ export default function HospitalDocSystem() {
 
   const handleInput = (k: string, v: any) => setForm((p:any) => ({...p, [k]: v}));
 
+  // 🔴 จุดแก้ไขสำคัญ: ฟังก์ชัน Save ที่ปรับปรุงแล้ว
   const save = async () => {
       try {
           const fd = new FormData();
-          // Logic: ถ้าเป็น stamp แล้วไม่มี type ให้ถือว่าเป็น USE (เบิกจ่าย)
-          if(tab === 'stamp' && !form.transactionType) form.transactionType = 'USE';
           
-          fd.append('data', JSON.stringify(form));
+          // สร้างตัวแปร payload แยก เพื่อความชัวร์ว่าค่าจะถูกส่งไปจริงๆ
+          const payload = { ...form };
+          
+          // ถ้าเป็น Stamp แล้วไม่ได้ระบุประเภท ให้ถือว่าเป็น USE (เบิกใช้)
+          if(tab === 'stamp' && !payload.transactionType) {
+              payload.transactionType = 'USE';
+          }
+
+          fd.append('data', JSON.stringify(payload));
           if(form.file) fd.append('file', form.file);
 
           let url = `${API}/docs/${tab}`;
           if(editingId) url += `/${editingId}`;
 
+          console.log("Saving to:", url); // Debug
+          
           if (editingId) await axios.put(url, fd);
           else await axios.post(url, fd);
 
           setShowForm(false); setForm({}); setEditingId(null);
           loadData(); 
           alert('บันทึกข้อมูลสำเร็จ ✅');
-      } catch(e: any) { alert(`บันทึกไม่สำเร็จ: ${e.message}`); }
+      } catch(e: any) { 
+          console.error(e);
+          // แจ้ง Error แบบละเอียด
+          alert(`บันทึกไม่สำเร็จ!\nServer แจ้งว่า: ${e.response?.data || e.message}`); 
+      }
   };
 
   const del = async (id: number) => {
@@ -181,8 +194,6 @@ export default function HospitalDocSystem() {
       }
   };
 
-  // --- Render Sections ---
-
   const renderCalendar = () => {
       const year = calDate.getFullYear();
       const month = calDate.getMonth();
@@ -238,7 +249,7 @@ export default function HospitalDocSystem() {
                            </div>
                            {expandedReceipts.includes(rNum) && (
                                <table style={{width:'100%', borderCollapse:'collapse'}}>
-                                   <thead style={{background:'#f8fafc'}}><tr><th style={{padding:8, textAlign:'left'}}>เรื่อง</th><th style={{padding:8, textAlign:'left'}}>ผู้รับ</th><th style={{padding:8}}>ค่าส่ง</th>{currentUser&&<th style={{padding:8}}>จัดการ</th>}</tr></thead>
+                                   <thead style={{background:'#f8fafc'}}><tr><th style={{padding:8, textAlign:'left'}}>เรื่อง</th><th style={{padding:8, textAlign:'left'}}>ผู้รับ</th><th style={{padding:8}}>ค่าส่ง</th>{currentUser&&<th style={{padding:8}}>ลบ</th>}</tr></thead>
                                    <tbody>
                                        {group.items.map((item:any) => (
                                            <tr key={item.id} style={{borderTop:'1px solid #eee'}}><td style={{padding:8}}>{item.subject}</td><td style={{padding:8}}>{item.recipientName}</td><td style={{padding:8}}>{item.amount}</td>{currentUser && <td style={{padding:8}}><button onClick={()=>del(item.id)} style={{color:'red', border:'none', background:'none', cursor:'pointer'}}>x</button></td>}</tr>
@@ -267,6 +278,7 @@ export default function HospitalDocSystem() {
               <div>
                   <div style={{background:'#fff7ed', border:'1px solid #fdba74', padding:20, borderRadius:10, marginBottom:20, display:'flex', justifyContent:'space-between', alignItems:'center'}}>
                       <div><div style={{color:'#9a3412', fontSize:14}}>ยอดเงินคงเหลือ</div><div style={{fontSize:36, fontWeight:'bold', color: stampBalance < 100 ? 'red' : '#ea580c'}}>{stampBalance.toLocaleString()} บาท</div></div>
+                      {/* 🟢 แก้ไขปุ่มซื้อเพิ่ม: ตั้งค่า transactionType เป็น ADD ทันที */}
                       {currentUser && <button onClick={()=>{setForm({transactionType:'ADD', date: new Date().toISOString().split('T')[0]}); setShowForm(true);}} style={{background:colors.success, color:'white', padding:'10px 20px', border:'none', borderRadius:5, cursor:'pointer'}}>+ ซื้อเพิ่ม</button>}
                   </div>
                   {renderStandardTable(['วันที่', 'รายการ', 'รับ', 'จ่าย', 'ผู้เบิก'], ['date', 'reason', 'income', 'expense', 'requester'])}
@@ -321,11 +333,8 @@ export default function HospitalDocSystem() {
           <div style={{background:'white', padding:20, borderRadius:10, width:500, maxHeight:'90vh', overflowY:'auto'}}>
               <h3>{editingId ? 'แก้ไข' : 'เพิ่ม'} ข้อมูล</h3>
               
-              {/* Common Date */}
               <div style={{marginBottom:10}}><label>วันที่</label><input type="date" value={form.date || form.receiveDate || form.bookingDate || form.sendDate || form.effectiveDate || ''} onChange={e=>handleInput(tab.includes('incoming')?'receiveDate':tab==='meeting'?'bookingDate':tab==='outgoing-mail'?'sendDate':tab==='orders'?'effectiveDate':'date', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>
 
-              {/* SPECIFIC FIELDS */}
-              {/* 1. Outgoing Mail */}
               {tab === 'outgoing-mail' && <>
                   <div style={{marginBottom:10}}><label>เลขที่ใบเสร็จ</label><input value={form.receiptNumber||''} onChange={e=>handleInput('receiptNumber', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>
                   <div style={{marginBottom:10}}><label>ค่าส่ง (บาท)</label><input type="number" value={form.amount||''} onChange={e=>handleInput('amount', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>
@@ -333,21 +342,19 @@ export default function HospitalDocSystem() {
                   <div style={{marginBottom:10}}><label>เรื่อง</label><input value={form.subject||''} onChange={e=>handleInput('subject', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>
               </>}
 
-              {/* 2. External Books (หนังสือภายนอก) */}
               {tab.includes('ext') && <>
                    <div style={{marginBottom:10}}><label>เลขที่หนังสือ</label><input value={form.docNumber||''} onChange={e=>handleInput('docNumber', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>
                    <div style={{marginBottom:10}}><label>เรื่อง</label><input value={form.subject||''} onChange={e=>handleInput('subject', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>
                    <div style={{marginBottom:10}}><label>เรียน (ผู้รับ)</label><input value={form.recipientName||''} onChange={e=>handleInput('recipientName', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>
               </>}
 
-              {/* 3. Stamp Duty (อากรแสตมป์) */}
               {tab === 'stamp' && <>
                    <div style={{marginBottom:10}}><label>รายการ (เหตุผล)</label><input value={form.reason||''} onChange={e=>handleInput('reason', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>
                    <div style={{marginBottom:10}}><label>จำนวนเงิน (บาท)</label><input type="number" value={form.amount||''} onChange={e=>handleInput('amount', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>
-                   {form.transactionType === 'USE' && <div style={{marginBottom:10}}><label>ผู้เบิก</label><input value={form.requester||''} onChange={e=>handleInput('requester', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>}
+                   {/* แสดงผู้เบิก ถ้าไม่ใช่การซื้อเพิ่ม */}
+                   {form.transactionType !== 'ADD' && <div style={{marginBottom:10}}><label>ผู้เบิก</label><input value={form.requester||''} onChange={e=>handleInput('requester', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>}
               </>}
 
-              {/* 4. Meeting */}
               {tab === 'meeting' && <>
                   <div style={{display:'flex', gap:10}}>
                        <div style={{flex:1}}><label>เริ่ม</label><input type="time" value={form.startTime||''} onChange={e=>handleInput('startTime', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>
@@ -358,7 +365,6 @@ export default function HospitalDocSystem() {
                   <div style={{marginBottom:10}}><label>วัตถุประสงค์</label><input value={form.purpose||''} onChange={e=>handleInput('purpose', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>
               </>}
 
-              {/* 5. Incoming / Orders / Reg (Others) */}
               {(!['meeting', 'outgoing-mail', 'stamp'].includes(tab) && !tab.includes('ext')) && <>
                   <div style={{marginBottom:10}}><label>เรื่อง / ชื่อ</label><input value={form.subject || form.childName || form.deceasedName || ''} onChange={e=>handleInput(tab.includes('reg-birth')?'childName':tab.includes('reg-death')?'deceasedName':'subject', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>
                   {(tab.includes('incoming') || tab==='orders') && <div style={{marginBottom:10}}><label>เลขที่หนังสือ/คำสั่ง</label><input value={form.docNumber||''} onChange={e=>handleInput('docNumber', e.target.value)} style={{width:'100%', padding:8, border:'1px solid #ccc'}}/></div>}
@@ -381,6 +387,19 @@ export default function HospitalDocSystem() {
           </div>
       </div>
   );
+
+  // 🔴 จุดแก้ไขสำคัญ: ปรับปรุงปุ่มเพิ่มรายการ (Main Add Button)
+  const handleMainAdd = () => {
+      // ตั้งค่าเริ่มต้นของ Form ให้เหมาะสมกับ Tab
+      let initForm: any = {};
+      if (tab === 'stamp') {
+          // ถ้าอยู่หน้าอากร กดเพิ่มปกติ = เบิกใช้ (USE)
+          initForm = { transactionType: 'USE' };
+      }
+      setForm(initForm);
+      setEditingId(null);
+      setShowForm(true);
+  };
 
   if(isLoginModalOpen) return (
       <div style={{position:'fixed', top:0, left:0, right:0, bottom:0, background:'rgba(0,0,0,0.5)', display:'flex', justifyContent:'center', alignItems:'center', zIndex:2000}}>
@@ -438,7 +457,7 @@ export default function HospitalDocSystem() {
         </div>
 
         <div style={{background:'white', padding:15, borderRadius:10, marginBottom:20, display:'flex', gap:10, flexWrap:'wrap'}}>
-            {currentUser && <button onClick={()=>{setShowForm(true); setEditingId(null); setForm({});}} style={{background: colors.secondary, color:'white', padding:'8px 15px', border:'none', borderRadius:5, cursor:'pointer'}}>+ เพิ่มรายการ</button>}
+            {currentUser && <button onClick={handleMainAdd} style={{background: colors.secondary, color:'white', padding:'8px 15px', border:'none', borderRadius:5, cursor:'pointer'}}>+ เพิ่มรายการ</button>}
             <div style={{flexGrow:1}} />
             <input placeholder="ค้นหา..." value={tempSearchTerm} onChange={e=>setTempSearchTerm(e.target.value)} style={{padding:8, border:'1px solid #ccc'}} />
             <button onClick={()=>setActiveSearchTerm(tempSearchTerm)} style={{cursor:'pointer'}}>🔍</button>
